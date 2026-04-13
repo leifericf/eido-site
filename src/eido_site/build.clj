@@ -1778,6 +1778,36 @@ document.querySelectorAll('.arch-content pre code').forEach(function(el) {
            [:h2 title]
            content])]])))
 
+;; --- Reference index page ---
+
+(def reference-cards
+  "Cards shown on the /reference/ landing page."
+  [{:slug  "api"
+    :title "API"
+    :desc  "Auto-generated function reference, grouped by namespace."}
+   {:slug  "manual"
+    :title "Manual"
+    :desc  "A hands-on tour of Eido — from first shapes to generative art."}
+   {:slug  "design"
+    :title "Design notes"
+    :desc  "Why Eido is shaped this way — pipeline and architecture."}
+   {:slug  "scope"
+    :title "Scope & limitations"
+    :desc  "What Eido is, and what it intentionally is not."}])
+
+(defn generate-reference-html
+  "Generates the /reference/ landing page — a card grid linking to
+  api, manual, design, and scope sub-pages."
+  []
+  (html-page {:title "Reference" :active-page :reference :depth 1}
+    [:h1.page-title "Reference"]
+    [:p.page-subtitle "Look-up surface — API, manual, design notes, scope."]
+    [:div.workflow-grid
+     (for [{:keys [slug title desc]} reference-cards]
+       [:a.workflow-card {:href (str slug "/")}
+        [:div.workflow-card-title title]
+        [:div.workflow-card-desc desc]])]))
+
 ;; --- Workflow pages ---
 
 (defn generate-workflows-index-html
