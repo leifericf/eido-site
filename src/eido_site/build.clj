@@ -21,6 +21,7 @@
     [eido.scene :as scene]
     [eido.scene3d :as s3d]
     [eido-site.content.landing :as landing]
+    [eido-site.content.workflows :as workflows]
     [eido-site.pages :as pages]
     [eido-site.styles :as styles]
     [replicant.string :as replicant]))
@@ -1822,7 +1823,7 @@ document.querySelectorAll('.arch-content pre code').forEach(function(el) {
     [:h1.page-title "Workflows"]
     [:p.page-subtitle "End-to-end guides for common generative art workflows"]
     [:div.workflow-grid
-     (for [{:keys [slug title desc]} pages/workflow-pages]
+     (for [{:keys [slug title desc]} workflows/workflow-pages]
        [:a.workflow-card {:href (str slug "/")}
         [:div.workflow-card-title title]
         [:div.workflow-card-desc desc]])]))
@@ -1932,7 +1933,7 @@ document.querySelectorAll('.arch-content pre code').forEach(function(el) {
     (println "Generating workflows...")
     (write-page! out-dir "workflows/index.html"
       (generate-workflows-index-html))
-    (doseq [{:keys [slug] :as page} pages/workflow-pages]
+    (doseq [{:keys [slug] :as page} workflows/workflow-pages]
       (println "  Generating workflow:" slug "...")
       (write-page! out-dir (str "workflows/" slug "/index.html")
         (generate-workflow-page-html page)))
