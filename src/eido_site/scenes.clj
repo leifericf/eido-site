@@ -826,6 +826,51 @@
         (mapv #(assoc % :style/stroke {:color [:color/rgb 30 30 30] :width 0.8})
               paths)})
 
+     "docs-wf-motion-streams.png"
+     {:image/size [400 300]
+      :image/background [:color/rgb 245 243 238]
+      :image/nodes
+      (into []
+        (concat
+          ;; Pen 1 — red concentric rings
+          (for [r (range 25 95 12)]
+            {:node/type     :shape/circle
+             :circle/center [100 150]
+             :circle/radius r
+             :style/stroke  {:color [:color/rgb 200 60 40] :width 1.0}})
+          ;; Pen 2 — blue horizontal hatching
+          (for [y (range 70 230 8)]
+            {:node/type    :shape/line
+             :line/from    [190 y]
+             :line/to      [290 y]
+             :style/stroke {:color [:color/rgb 40 60 160] :width 1.0}})
+          ;; Pen 3 — green radial spokes
+          (for [i (range 24)]
+            (let [a  (* i (/ (* 2.0 Math/PI) 24.0))
+                  x1 (+ 345 (* 20 (Math/cos a)))
+                  y1 (+ 150 (* 20 (Math/sin a)))
+                  x2 (+ 345 (* 48 (Math/cos a)))
+                  y2 (+ 150 (* 48 (Math/sin a)))]
+              {:node/type    :shape/line
+               :line/from    [x1 y1]
+               :line/to      [x2 y2]
+               :style/stroke {:color [:color/rgb 40 140 70] :width 1.0}}))))}
+
+     "docs-wf-clip-export.png"
+     (let [paths (flow/flow-field [0 0 300 300]
+                   {:density 10 :steps 30 :noise-scale 0.008 :seed 13})
+           stroked (mapv #(assoc % :style/stroke
+                                 {:color [:color/rgb 30 30 30] :width 0.8})
+                         paths)]
+       {:image/size       [300 300]
+        :image/background [:color/rgb 245 243 238]
+        :image/nodes
+        [{:node/type  :group
+          :group/clip {:node/type     :shape/circle
+                       :circle/center [150 150]
+                       :circle/radius 110}
+          :group/children stroked}]})
+
      "docs-wf-print-paper.png"
      (let [paper (scene/paper :a4)]
        (-> paper

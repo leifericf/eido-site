@@ -295,7 +295,104 @@
                     :output \"paths.edn\"
                     :flatness 0.5
                     :segments 64})"]]
-     [:p "All geometry is converted to polylines: curves are flattened via de Casteljau subdivision, circles and ellipses are approximated as polygons."]]}])
+     [:p "All geometry is converted to polylines: curves are flattened via de Casteljau subdivision, circles and ellipses are approximated as polygons."]]}
+
+   {:id "dxf"
+    :title "DXF for CAD & Fabrication"
+    :content
+    [:div
+     [:p "Eido emits " [:strong "DXF R12 ASCII"] " — the universal CAD interchange format. Reach LibreCAD, QCAD, AutoCAD, and any downstream tool that consumes DXF: laser cutters, CNC routers, vinyl cutters, plasma tables, waterjets."]
+     [:pre {:data-img "docs-wf-motion-streams.png"} [:code
+            "(eido/render scene {:output \"art.dxf\"})
+;; or return the string
+(eido/render scene {:format :dxf})"]]
+     [:p "Each unique stroke color becomes a DXF " [:code "LAYER"] " named " [:code "pen-R-G-B"] " (or " [:code "pen-R-G-B-aNN"] " when stroke alpha < 1.0 — DXF R12 has no per-layer transparency, so the suffix keeps layer names unique). Colors map to the AutoCAD Color Index (ACI) by nearest-neighbor against the named 9-color palette. Ops without a stroke go to a " [:code "pen-none"] " layer."]
+     [:p "Options:"]
+     [:ul
+      [:li [:code ":scale"] " — coordinate multiplier (default 1.0); scene units are emitted as millimetres (" [:code "$INSUNITS 4"] ")"]
+      [:li [:code ":flatness"] " — curve subdivision tolerance (default 0.5)"]
+      [:li [:code ":segments"] " — circle/ellipse/arc segment count (default 64)"]
+      [:li [:code ":optimize-travel"] " — reorder polylines within each layer to minimize pen travel (default true)"]]]}
+
+   {:id "gcode"
+    :title "GRBL G-code for Lasers & 2D CNC"
+    :content
+    [:div
+     [:p "For pen-on-CNC, laser engravers, and 2D CNC routers running GRBL, emit a streamable motion program:"]
+     [:pre {:data-img "docs-wf-motion-streams.png"} [:code
+            "(eido/render scene {:output \"art.gcode\"})
+;; or as a string
+(eido/render scene {:format :gcode})"]]
+     [:p "Each stroke color becomes an " [:code "M0"] " operator-pause tool change plus an " [:code "M3"] " spindle-on (or " [:code "M4"] " dynamic laser power when " [:code ":laser-mode true"] "). Polylines emit " [:code "G0"] " rapids to start, " [:code "G1 Z"] " plunges to engage, " [:code "G1"] " draws at the configured feed rate, then " [:code "G1 Z"] " retracts."]
+     [:p "The Y-axis is flipped relative to scene height so " [:code "(0, 0)"] " sits at the bottom-left bed origin (CNC convention), not the top-left (SVG convention)."]
+     [:p "Options:"]
+     [:ul
+      [:li [:code ":feed"] " — cutting/drawing feed rate (default 1000 mm/min)"]
+      [:li [:code ":z-up"] " / " [:code ":z-down"] " — safe retract / engage heights in mm (default 5 / 0)"]
+      [:li [:code ":spindle-power"] " — S value on M3/M4 (default 1000; typical 0–1000)"]
+      [:li [:code ":laser-mode"] " — swap M3 for M4 dynamic power (default false)"]
+      [:li [:code ":scale"] ", " [:code ":flatness"] ", " [:code ":segments"] ", " [:code ":optimize-travel"] " — as above"]]
+     [:p [:em "GRBL only."] " Marlin and LinuxCNC dialects, plus G2/G3 arc moves, are out of scope for this release."]]}
+
+   {:id "hpgl"
+    :title "HPGL for Vintage & Current Plotters"
+    :content
+    [:div
+     [:p "For the vintage pen-plotter world — HP DraftPro, HP DesignJet, Roland DXY/PNC, many used 80s/90s plotters still in service — and for AxiDraw-adjacent controllers via shims, emit HPGL directly:"]
+     [:pre {:data-img "docs-wf-motion-streams.png"} [:code
+            "(eido/render scene {:output \"art.hpgl\"})
+;; or as a string
+(eido/render scene {:format :hpgl})"]]
+     [:p "HPGL is plain ASCII: " [:code "IN;"] " initialize, " [:code "PA;"] " absolute coords, " [:code "SP n;"] " select pen n, " [:code "PU x,y;"] " pen up + move, " [:code "PD x,y,...;"] " pen down + draw. Each unique stroke color becomes a sequential pen (1-indexed, first-seen order), so a scene with three stroke colors cleanly maps to pens 1, 2, and 3."]
+     [:p "Like G-code, HPGL uses a bottom-left origin — Eido flips Y relative to scene height automatically."]
+     [:p "Options:"]
+     [:ul
+      [:li [:code ":scale"] " — plotter units per scene unit (default 40, matching the classic HP 40-units-per-mm resolution); pass " [:code ":scale 1"] " for raw scene units"]
+      [:li [:code ":flatness"] ", " [:code ":segments"] ", " [:code ":optimize-travel"] " — as above"]]]}
+
+   {:id "clipping"
+    :title "Clipping Through to the Pen"
+    :content
+    [:div
+     [:p "The polyline pipeline clips each exported polyline against its parent group's " [:code ":group/clip"] " geometry — same behavior as the raster renderer. Previously a 200×200 rect clipped to a small circle would have exported its full outline regardless, costing pen ink and travel on geometry the artist had hidden."]
+     [:pre {:data-img "docs-wf-clip-export.png"} [:code
+            ";; Flow field clipped to a circle — the exported DXF / G-code /
+;; HPGL / polyline data contains only the strokes inside the circle.
+{:image/size [300 300]
+ :image/background [:color/rgb 245 243 238]
+ :image/nodes
+ [{:node/type  :group
+   :group/clip {:node/type     :shape/circle
+                :circle/center [150 150]
+                :circle/radius 110}
+   :group/children flow-field-paths}]}"]]
+     [:p "Clipping is segment-by-segment analytic: each polyline segment is tested against every clip-polygon edge; intervals classified as inside become sub-polylines, intervals outside are dropped, intervals straddling the boundary split into multiple sub-polylines. Open polylines (lines, unclosed paths) are handled correctly — they don't get forced into closed polygons."]
+     [:p "Arbitrary, non-convex clip paths are supported; " [:code ":shape/rect"] ", " [:code ":shape/circle"] ", " [:code ":shape/ellipse"] ", and " [:code ":shape/path"] " all work as clip geometry."]]}
+
+   {:id "drops"
+    :title "What Doesn't Survive the Pen"
+    :content
+    [:div
+     [:p "Polylines can only represent stroke paths. Anything that relies on raster — fills (solid, gradient, pattern, hatch, stipple), effects (shadow, glow, blur), and composite modes — is silently dropped by every motion-stream backend. A scene that looks filled on screen exports as outlines only."]
+     [:p "To make that loss auditable, the substrate reports it:"]
+     [:pre [:code
+            "(eido/render scene {:format :polylines})
+;=> {:polylines [...]
+;    :bounds [400 300]
+;    :dropped {:fills 12}}   ;; only present when non-empty
+
+;; With :emit-manifest? true, the :dropped map lands in the
+;; sidecar EDN manifest alongside :scene and :render-opts.
+(eido/render scene {:output \"art.dxf\" :emit-manifest? true})
+;; → writes art.dxf and art.edn, the latter containing :dropped."]]
+     [:p "For programmatic checks, " [:code "eido.io.polyline/summarize-drops"] " takes a compiled IR and returns the same map — useful when gating a plot queue or warning in a custom tool:"]
+     [:pre [:code
+            "(require '[eido.io.polyline :as polyline]
+         '[eido.engine.compile :as compile])
+
+(polyline/summarize-drops (compile/compile scene))
+;=> {:fills 3}  ;; or {} when nothing's dropped"]]
+     [:p "If " [:code ":dropped"] " matters for your workflow, fold a check into your plot script: refuse to plot when fills are non-zero, or surface the count in your editioning tooling."]]}])
 
 (defn- workflow-print-sections []
   [{:id "paper-presets"
@@ -810,7 +907,7 @@
    :desc "Deterministic series, seed management, trait distribution, and batch rendering."
    :sections-fn workflow-editions-sections}
   {:slug "plotter"    :title "Plotter Art"
-   :desc "Stroke-only SVG, pen grouping, travel optimization, and polyline export."
+   :desc "Stroke-only SVG, pen grouping, travel optimization, polyline export, and DXF / GRBL G-code / HPGL writers."
    :sections-fn workflow-plotter-sections}
   {:slug "print"      :title "Print Production"
    :desc "Paper presets, real-world units, margins, DPI, and archival TIFF output."
