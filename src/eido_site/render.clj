@@ -368,11 +368,12 @@ function filterGallery(tag) {
           [:div.docs-category {:id id}
            [:h2.docs-category-title category]
            (when intro
-             [:div.docs-category-intro (insert-doc-previews intro)])
+             [:div.docs-category-intro
+              (insert-doc-previews intro "../../images/")])
            (for [{sec-id :id sec-title :title content :content} sections]
              [:section.docs-section {:id sec-id}
               [:h3 sec-title]
-              (insert-doc-previews content)])])]
+              (insert-doc-previews content "../../images/")])])]
        [:script {:innerHTML (str highlight-clj-js "
 document.querySelectorAll('pre code').forEach(function(el) {
   el.innerHTML = highlightClj(el.textContent);
@@ -396,7 +397,7 @@ document.querySelectorAll('pre code').forEach(function(el) {
         (for [{:keys [id title content]} sections]
           [:section.arch-section {:id id}
            [:h2 title]
-           (insert-doc-previews content)])]]
+           (insert-doc-previews content "../../images/")])]]
       [:script {:innerHTML (str highlight-clj-js "
 document.querySelectorAll('.arch-content pre code').forEach(function(el) {
   el.innerHTML = highlightClj(el.textContent);
