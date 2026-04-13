@@ -1,0 +1,32 @@
+.DS_Store
+
+# Environment files
+.env
+.env.*
+
+# Logs
+*.log
+
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+
+# Clojure / JVM build output
+target/
+classes/
+
+# Clojure tooling
+.cpcache/
+.clj-kondo/.cache/
+.lsp/
+.nrepl-port
+.lein-repl-history
+
+# Site build output
+_site/
+
+# Rendered preview images (generated at build time)
+images/
