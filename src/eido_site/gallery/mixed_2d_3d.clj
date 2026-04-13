@@ -1,4 +1,4 @@
-(ns eido-site.gallery.mixed
+(ns eido-site.gallery.mixed-2d-3d
   "Mixed 2D/3D gallery — 3D meshes composing freely with 2D elements."
   {:category "Mixed 2D/3D"}
   (:require

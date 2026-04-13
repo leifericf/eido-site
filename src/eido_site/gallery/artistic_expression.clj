@@ -1,4 +1,4 @@
-(ns eido-site.gallery.art
+(ns eido-site.gallery.artistic-expression
   "Artistic expression gallery — showcasing eido's expressive toolkit."
   {:category "Artistic Expression"}
   (:require

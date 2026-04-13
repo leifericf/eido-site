@@ -1,4 +1,4 @@
-(ns eido-site.gallery.paint
+(ns eido-site.gallery.paint-engine
   "Paint engine gallery — procedural brushwork, painterly effects,
   and composable generative paint techniques.
 

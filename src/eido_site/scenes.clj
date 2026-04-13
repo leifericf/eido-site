@@ -36,14 +36,14 @@
   "Namespaces to scan for example functions."
   '[eido-site.gallery.generative
     eido-site.gallery.showcase
-    eido-site.gallery.art
+    eido-site.gallery.artistic-expression
     eido-site.gallery.artisan
     eido-site.gallery.scenes-2d
     eido-site.gallery.scenes-3d
-    eido-site.gallery.mixed
+    eido-site.gallery.mixed-2d-3d
     eido-site.gallery.particles
     eido-site.gallery.typography
-    eido-site.gallery.paint])
+    eido-site.gallery.paint-engine])
 
 ;; --- Discovery ---
 
