@@ -46,37 +46,40 @@
 (defn- insert-doc-previews
   "Walks Hiccup content, inserting preview images after code blocks
   that have a :data-img attribute on their :pre element.
-  img-prefix controls the relative path to the images directory
-  (default \"../images/\" for depth-1 pages)."
-  ([content] (insert-doc-previews content "../images/"))
-  ([content img-prefix]
-   (cond
-     (not (vector? content)) content
-     (not (keyword? (first content))) (mapv #(insert-doc-previews % img-prefix) content)
 
-     ;; [:pre {:data-img "file.png"} [:code "..."]]
-     (and (= :pre (first content))
-          (map? (second content))
-          (:data-img (second content)))
-     (let [img-file (:data-img (second content))
-           clean-attrs (dissoc (second content) :data-img)
-           clean-pre (if (seq clean-attrs)
-                       (into [:pre clean-attrs] (drop 2 content))
-                       (into [:pre] (drop 2 content)))]
-       [:div.docs-code-example
-        clean-pre
-        [:img.docs-preview {:src (str img-prefix img-file)
-                            :alt "Rendered output"
-                            :loading "lazy"}]])
+  img-prefix is the relative path from the hosting page to the
+  images directory — callers pass `../../images/` from depth-2
+  pages like /workflows/<slug>/ and /reference/<slug>/. No default:
+  forgetting to specify used to quietly break depth-2 preview
+  images, so an explicit value is required."
+  [content img-prefix]
+  (cond
+    (not (vector? content)) content
+    (not (keyword? (first content))) (mapv #(insert-doc-previews % img-prefix) content)
 
-     ;; Recurse into children of Hiccup elements
-     :else
-     (let [has-attrs? (and (> (count content) 1) (map? (second content)))
-           tag (first content)
-           attrs (when has-attrs? (second content))
-           children (if has-attrs? (drop 2 content) (rest content))]
-       (into (if attrs [tag attrs] [tag])
-             (map #(insert-doc-previews % img-prefix) children))))))
+    ;; [:pre {:data-img "file.png"} [:code "..."]]
+    (and (= :pre (first content))
+         (map? (second content))
+         (:data-img (second content)))
+    (let [img-file (:data-img (second content))
+          clean-attrs (dissoc (second content) :data-img)
+          clean-pre (if (seq clean-attrs)
+                      (into [:pre clean-attrs] (drop 2 content))
+                      (into [:pre] (drop 2 content)))]
+      [:div.docs-code-example
+       clean-pre
+       [:img.docs-preview {:src (str img-prefix img-file)
+                           :alt "Rendered output"
+                           :loading "lazy"}]])
+
+    ;; Recurse into children of Hiccup elements
+    :else
+    (let [has-attrs? (and (> (count content) 1) (map? (second content)))
+          tag (first content)
+          attrs (when has-attrs? (second content))
+          children (if has-attrs? (drop 2 content) (rest content))]
+      (into (if attrs [tag attrs] [tag])
+            (map #(insert-doc-previews % img-prefix) children)))))
 
 ;; --- HTML generation ---
 
