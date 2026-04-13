@@ -20,6 +20,7 @@
     [eido.path.aesthetic :as aesthetic]
     [eido.scene :as scene]
     [eido.scene3d :as s3d]
+    [eido-site.content.landing :as landing]
     [eido-site.pages :as pages]
     [eido-site.styles :as styles]
     [replicant.string :as replicant]))
@@ -1399,7 +1400,7 @@
         [:a.hero-link.hero-link--secondary {:href "./reference/manual/"} "Read the Manual"]
         [:a.hero-link.hero-link--secondary {:href "./reference/design/"} "Design Notes"]]]
       [:section.features
-       (for [{:keys [title desc]} (pages/features)]
+       (for [{:keys [title desc]} (landing/features)]
          [:div.feature
           [:div.feature-marker "\u2022"]
           [:div.feature-body
@@ -1407,10 +1408,10 @@
            [:div.feature-desc desc]]])]
       [:section {:style "margin-top: 3rem"}
        [:h2 {:style "font-size: 1.5rem; margin-bottom: 1rem"} "How it works"]
-       (pages/quick-start-content)]
+       (landing/quick-start-content)]
       [:section {:style "margin-top: 2rem"}
        [:h2 {:style "font-size: 1.5rem; margin-bottom: 1rem"} "Getting Started"]
-       (pages/install-content)]
+       (landing/install-content)]
       [:script {:innerHTML (str highlight-clj-js "
 document.querySelectorAll('pre code').forEach(function(el) {
   el.innerHTML = highlightClj(el.textContent);
