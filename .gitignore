@@ -20,7 +20,7 @@ classes/
 
 # Clojure tooling
 .cpcache/
-.clj-kondo/.cache/
+.clj-kondo/
 .lsp/
 .nrepl-port
 .lein-repl-history
