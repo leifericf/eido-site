@@ -86,7 +86,7 @@
    [:p "Low-level control when you need it, high-level convenience when you don't. Every example in the "
     [:a {:href "./gallery/"} "gallery"]
     " works this way — pure data in, image out. See the "
-    [:a {:href "./guide/"} "Guide"]
+    [:a {:href "./reference/manual/"} "Manual"]
     " to get started."]])
 
 (defn install-content

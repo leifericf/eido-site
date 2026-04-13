@@ -1379,12 +1379,12 @@
        [:p {:style "color: #6a6a7a; font-size: 0.85rem; margin-top: 0.3rem; font-style: italic;"}
         "From Greek " [:em "eido"] " \u2014 \"I see.\" "
         "A tool for making art, not charts — see "
-        [:a {:href "./limitations/" :style "color: #8a8a9a"} "Scope"] "."]
+        [:a {:href "./reference/scope/" :style "color: #8a8a9a"} "Scope"] "."]
        [:div#hero-images.hero-images]
        [:div.hero-links
         [:a.hero-link.hero-link--primary {:href "./gallery/"} "Browse Gallery"]
-        [:a.hero-link.hero-link--secondary {:href "./guide/"} "Read the Guide"]
-        [:a.hero-link.hero-link--secondary {:href "./architecture/"} "How It Works"]]]
+        [:a.hero-link.hero-link--secondary {:href "./reference/manual/"} "Read the Manual"]
+        [:a.hero-link.hero-link--secondary {:href "./reference/design/"} "Design Notes"]]]
       [:section.features
        (for [{:keys [title desc]} (pages/features)]
          [:div.feature
