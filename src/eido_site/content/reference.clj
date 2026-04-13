@@ -1,9 +1,7 @@
-(ns eido-site.pages
-  "Static content for the Eido website — docs, architecture, workflows.
-
-  Landing-page content has moved to `eido-site.content.landing`.
-  More content namespaces are being extracted from this file in the
-  ongoing pages.clj split.")
+(ns eido-site.content.reference
+  "Reference content — manual (docs-categories), design notes
+  (architecture-sections), scope (limitations-sections), and the
+  intent cards shown at the top of the manual.")
 
 ;; --- Docs page ---
 ;; Docs are organized into categories, each containing sections.
@@ -2260,4 +2258,3 @@ CircleOp{...original-shape...}"]]
       [:li [:strong "Precision CAD"] " — OpenSCAD, FreeCAD. When you need engineering tolerances and manufacturing output beyond polyline export."]
       [:li [:strong "Data visualization"] " — Vega-Lite, Observable Plot, Oz. When your primary goal is communicating data rather than making art."]
       [:li [:strong "GPU shaders"] " — Shadertoy, ISF, Processing. When you need real-time fragment shader performance."]]]}])
-

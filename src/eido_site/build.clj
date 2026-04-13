@@ -21,8 +21,8 @@
     [eido.scene :as scene]
     [eido.scene3d :as s3d]
     [eido-site.content.landing :as landing]
+    [eido-site.content.reference :as reference]
     [eido-site.content.workflows :as workflows]
-    [eido-site.pages :as pages]
     [eido-site.styles :as styles]
     [replicant.string :as replicant]))
 
@@ -1588,12 +1588,12 @@ function filterGallery(tag) {
 (defn generate-docs-html
   "Generates the user guide page HTML."
   []
-  (let [categories (pages/docs-categories)]
+  (let [categories (reference/docs-categories)]
     (html-page {:title "Manual" :active-page :reference :depth 2}
       [:h1.page-title "Guide"]
       [:p.page-subtitle "A hands-on tour of Eido — from first shapes to generative art."]
       [:div.intent-grid
-       (for [{:keys [intent links]} (pages/intent-cards)]
+       (for [{:keys [intent links]} (reference/intent-cards)]
          [:div.intent-card
           [:div.intent-label intent]
           [:div.intent-links
@@ -1746,7 +1746,7 @@ function filterAPI(query) {
 (defn generate-architecture-html
   "Generates the 'How Eido Works' architecture page."
   []
-  (let [sections (pages/architecture-sections)]
+  (let [sections (reference/architecture-sections)]
     (html-page {:title "Design notes" :active-page :reference :depth 2}
       [:h1.page-title "How Eido Works"]
       [:p.page-subtitle "From data to pixels — a tour of the rendering pipeline"]
@@ -1770,7 +1770,7 @@ document.querySelectorAll('.arch-content pre code').forEach(function(el) {
 (defn generate-limitations-html
   "Generates the 'Scope & Limitations' page."
   []
-  (let [sections (pages/limitations-sections)]
+  (let [sections (reference/limitations-sections)]
     (html-page {:title "Scope & Limitations" :active-page :reference :depth 2}
       [:h1.page-title "Scope & Limitations"]
       [:p.page-subtitle "What Eido does, what it doesn't, and why"]

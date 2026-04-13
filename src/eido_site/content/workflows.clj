@@ -1,7 +1,6 @@
 (ns eido-site.content.workflows
   "Workflow guide pages — registry of guides + the section-builder
-  fns each one renders. Extracted from `eido-site.pages` during the
-  pages.clj split.")
+  fns each one renders.")
 
 ;; --- Workflow pages ---
 
