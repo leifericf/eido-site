@@ -1348,21 +1348,12 @@
              [:li [:a {:href (str prefix "/gallery/")
                        :style (when (= active-page :gallery) "color: #e0ddd5")}
                    "Gallery"]]
-             [:li [:a {:href (str prefix "/guide/")
-                       :style (when (= active-page :docs) "color: #e0ddd5")}
-                   "Guide"]]
              [:li [:a {:href (str prefix "/workflows/")
                        :style (when (= active-page :workflows) "color: #e0ddd5")}
                    "Workflows"]]
-             [:li [:a {:href (str prefix "/api/")
-                       :style (when (= active-page :api) "color: #e0ddd5")}
-                   "API"]]
-             [:li [:a {:href (str prefix "/architecture/")
-                       :style (when (= active-page :architecture) "color: #e0ddd5")}
-                   "How It Works"]]
-             [:li [:a {:href (str prefix "/limitations/")
-                       :style (when (= active-page :limitations) "color: #e0ddd5")}
-                   "Scope"]]
+             [:li [:a {:href (str prefix "/reference/")
+                       :style (when (= active-page :reference) "color: #e0ddd5")}
+                   "Reference"]]
              [:li [:a {:href "https://github.com/leifericf/eido"} "GitHub"]]]]
            [:main body]
            [:footer.footer
@@ -1583,7 +1574,7 @@ function filterGallery(tag) {
   "Generates the user guide page HTML."
   []
   (let [categories (pages/docs-categories)]
-    (html-page {:title "Guide" :active-page :docs :depth 1}
+    (html-page {:title "Manual" :active-page :reference :depth 2}
       [:h1.page-title "Guide"]
       [:p.page-subtitle "A hands-on tour of Eido — from first shapes to generative art."]
       [:div.intent-grid
@@ -1653,7 +1644,7 @@ document.querySelectorAll('pre code').forEach(function(el) {
                                 :vars    publics})))
                      (remove #(empty? (:vars %))))
         ns-by-name (into {} (map (juxt :ns-name identity) ns-data))]
-    (html-page {:title "API Reference" :active-page :api :depth 1}
+    (html-page {:title "API Reference" :active-page :reference :depth 2}
       [:h1.page-title "API Reference"]
       [:p.page-subtitle "Auto-generated from source metadata. Functions marked "
        [:span.api-var-badge.api-var-badge--provisional "Provisional"]
@@ -1741,7 +1732,7 @@ function filterAPI(query) {
   "Generates the 'How Eido Works' architecture page."
   []
   (let [sections (pages/architecture-sections)]
-    (html-page {:title "How Eido Works" :active-page :architecture :depth 1}
+    (html-page {:title "Design notes" :active-page :reference :depth 2}
       [:h1.page-title "How Eido Works"]
       [:p.page-subtitle "From data to pixels — a tour of the rendering pipeline"]
       [:div.arch-layout
@@ -1765,7 +1756,7 @@ document.querySelectorAll('.arch-content pre code').forEach(function(el) {
   "Generates the 'Scope & Limitations' page."
   []
   (let [sections (pages/limitations-sections)]
-    (html-page {:title "Scope & Limitations" :active-page :limitations :depth 1}
+    (html-page {:title "Scope & Limitations" :active-page :reference :depth 2}
       [:h1.page-title "Scope & Limitations"]
       [:p.page-subtitle "What Eido does, what it doesn't, and why"]
       [:div.arch-layout
@@ -1876,20 +1867,24 @@ document.querySelectorAll('.arch-content pre code').forEach(function(el) {
     (write-page! out-dir "gallery/index.html"
       (generate-gallery-html examples-by-category))
 
-    (println "Generating guide...")
-    (write-page! out-dir "guide/index.html"
+    (println "Generating reference index...")
+    (write-page! out-dir "reference/index.html"
+      (generate-reference-html))
+
+    (println "Generating reference/manual...")
+    (write-page! out-dir "reference/manual/index.html"
       (generate-docs-html))
 
-    (println "Generating API reference...")
-    (write-page! out-dir "api/index.html"
+    (println "Generating reference/api...")
+    (write-page! out-dir "reference/api/index.html"
       (generate-api-html))
 
-    (println "Generating architecture page...")
-    (write-page! out-dir "architecture/index.html"
+    (println "Generating reference/design...")
+    (write-page! out-dir "reference/design/index.html"
       (generate-architecture-html))
 
-    (println "Generating limitations page...")
-    (write-page! out-dir "limitations/index.html"
+    (println "Generating reference/scope...")
+    (write-page! out-dir "reference/scope/index.html"
       (generate-limitations-html))
 
     (println "Generating workflows...")
