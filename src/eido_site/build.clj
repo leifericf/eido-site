@@ -1336,6 +1336,19 @@
           [:meta {:charset "utf-8"}]
           [:meta {:name "viewport" :content "width=device-width, initial-scale=1"}]
           [:title (str title " — Eido")]
+          ;; Google Analytics 4 — eido.leifericf.com data stream.
+          ;; Hostname-gated so local builds and any future PR-preview
+          ;; deploys don't pollute the production stream.
+          [:script {:async true
+                    :src   "https://www.googletagmanager.com/gtag/js?id=G-LD8F7JFYGB"}]
+          [:script {:innerHTML
+                    (str "if (location.hostname === 'eido.leifericf.com') {\n"
+                         "  window.dataLayer = window.dataLayer || [];\n"
+                         "  function gtag(){dataLayer.push(arguments);}\n"
+                         "  gtag('js', new Date());\n"
+                         "  gtag('config', 'G-LD8F7JFYGB', "
+                         "{anonymize_ip: true});\n"
+                         "}")}]
           [:style {:innerHTML (styles/site-css)}]]
          [:body
           [:div.container
