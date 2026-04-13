@@ -1841,6 +1841,34 @@ document.querySelectorAll('.arch-content pre code').forEach(function(el) {
     (io/make-parents file)
     (spit file html)))
 
+(defn redirect-html
+  "HTML body that meta-refreshes a browser to `target` immediately,
+  with a canonical link and a JS fallback. Used to keep old URLs
+  working after the IA restructure moved pages under /reference/."
+  [target]
+  (str
+    "<!DOCTYPE html>\n"
+    "<html lang=\"en\">\n"
+    "<head>\n"
+    "<meta charset=\"utf-8\">\n"
+    "<title>Redirecting…</title>\n"
+    "<meta http-equiv=\"refresh\" content=\"0; url=" target "\">\n"
+    "<link rel=\"canonical\" href=\"https://eido.leifericf.com" target "\">\n"
+    "<script>location.replace(" (pr-str target) ");</script>\n"
+    "</head>\n"
+    "<body>\n"
+    "<p>Redirecting to <a href=\"" target "\">" target "</a>…</p>\n"
+    "</body>\n"
+    "</html>\n"))
+
+(def legacy-redirects
+  "Old URL → new URL. Emitted as static HTML files at the old paths
+  so external links and bookmarks don't 404 after the IA restructure."
+  {"guide/index.html"        "/reference/manual/"
+   "api/index.html"          "/reference/api/"
+   "architecture/index.html" "/reference/design/"
+   "limitations/index.html"  "/reference/scope/"})
+
 (defn build-site!
   "Builds the complete eido website into the output directory.
   Run via: clj -X:gallery"
@@ -1894,6 +1922,12 @@ document.querySelectorAll('.arch-content pre code').forEach(function(el) {
       (println "  Generating workflow:" slug "...")
       (write-page! out-dir (str "workflows/" slug "/index.html")
         (generate-workflow-page-html page)))
+
+    ;; Legacy redirects so external links to pre-restructure URLs
+    ;; don't 404. See `legacy-redirects`.
+    (println "Emitting legacy redirects...")
+    (doseq [[old-path new-url] legacy-redirects]
+      (write-page! out-dir old-path (redirect-html new-url)))
 
     ;; CNAME file for custom domain
     (spit (io/file out-dir "CNAME") "eido.leifericf.com")
