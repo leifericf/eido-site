@@ -2179,26 +2179,26 @@ CircleOp{...original-shape...}"]]
   "Artist intent cards — maps artistic goals to workflows and recipes."
   []
   [{:intent "I want to make plotter line work"
-    :links [{:label "Plotter workflow" :href "../workflows/plotter/"}
+    :links [{:label "Plotter workflow" :href "../../workflows/plotter/"}
             {:label "Path aesthetics" :href "#recipe-flow-path"}]}
    {:intent "I want to create painterly generative fields"
-    :links [{:label "Paint workflow" :href "../workflows/paint/"}
+    :links [{:label "Paint workflow" :href "../../workflows/paint/"}
             {:label "Flow field recipe" :href "#recipe-flow-path"}]}
    {:intent "I want to build geometric grids and patterns"
     :links [{:label "Subdivision" :href "#subdivision"}
             {:label "Subdivide recipe" :href "#recipe-subdivide-pack"}]}
    {:intent "I want to animate generative art"
-    :links [{:label "Animation workflow" :href "../workflows/animation/"}
+    :links [{:label "Animation workflow" :href "../../workflows/animation/"}
             {:label "Easing functions" :href "#easing"}]}
    {:intent "I want to create long-form edition series"
-    :links [{:label "Editions workflow" :href "../workflows/editions/"}
+    :links [{:label "Editions workflow" :href "../../workflows/editions/"}
             {:label "Edition recipe" :href "#recipe-edition"}]}
    {:intent "I want to explore 3D generative forms"
-    :links [{:label "3D workflow" :href "../workflows/3d/"}
-            {:label "3D shapes" :href "#shapes-3d"}]}
+    :links [{:label "3D workflow" :href "../../workflows/3d/"}
+            {:label "3D shapes" :href "#3d-scenes"}]}
    {:intent "I want to develop a custom color palette"
-    :links [{:label "Color workflow" :href "../workflows/color/"}
-            {:label "Palettes" :href "#palettes"}]}])
+    :links [{:label "Color workflow" :href "../../workflows/color/"}
+            {:label "Palettes" :href "#weighted-palettes"}]}])
 
 ;; --- Scope & Limitations page ---
 
