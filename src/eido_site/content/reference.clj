@@ -177,7 +177,7 @@
               "(color/rgb->oklab 255 0 0)   ;; => [0.628 0.225 0.126]
 (color/rgb->oklch 255 0 0)   ;; => [0.628 0.258 29.2]"]]
        [:h4 "Color contrast and distance"]
-       [:p "Check whether two colors have enough visual separation — for readability, plotter ink on paper, or accessibility:"]
+       [:p "Check whether two colors have enough visual separation — for readability and accessibility:"]
        [:pre [:code
               ";; WCAG luminance contrast ratio (1 = identical, 21 = max)
 (color/contrast :black :white)        ;; => 21.0
@@ -743,7 +743,7 @@
 (aesthetic/stylize cmds [{:op :chaikin :iterations 3}
                           {:op :dash :dash [10 5]}])"]]
        [:h4 "Path simplification"]
-       [:p "Reduce point count while preserving shape — essential for plotter optimization and cleaning up noisy paths:"]
+       [:p "Reduce point count while preserving shape — useful for cleaning up noisy paths and trimming generated geometry:"]
        [:pre [:code
               "(require '[eido.path :as path])
 
@@ -766,7 +766,7 @@
 ;; => [[10 10] [90 10] [90 90] [10 90]]"]]
        [:p "Works correctly for convex polygons. Concave polygons may produce self-intersecting results."]
        [:h4 "Curve splitting"]
-       [:p "Divide a path into equal-length segments — essential for plotter optimization and dashed effects:"]
+       [:p "Divide a path into equal-length segments — useful for dashed effects and per-segment styling:"]
        [:pre [:code
               ";; Split a path into segments of ~25px arc-length:
 (path/split-at-length path-cmds 25.0)
@@ -980,207 +980,53 @@
 (s3d/look-at {:eye [3 2 5] :target [0 0 0] :up [0 1 0]
               :scale 100 :origin [200 200]})"]]]}]}
 
-   {:category "Visual Computation"
-    :id       "visual-computation"
+   {:category "Effects & Materials"
+    :id       "effects"
     :sections
-    [{:id    "procedural-fills"
-      :title "Procedural Fills"
+    [{:id    "filter-effects"
+      :title "Filter Effects"
       :content
       [:div
-       [:p "Procedural fills evaluate a program expression per pixel over a shape's bounds. The program is pure data — no functions, no macros — just nested vectors describing the computation."]
+       [:p "A group can carry a " [:code ":group/filter"] " that post-processes everything it contains. The filter is a tagged vector — the tag names the effect, the rest are positional arguments:"]
        [:pre [:code
-              "(require '[eido.ir :as ir])
-(require '[eido.ir.fill :as fill])
-(require '[eido.ir.lower :as lower])
+              ";; Halftone — dot-size, angle (degrees)
+{:node/type :group
+ :group/filter [:halftone 6 0]
+ :group/children [,,,]}
 
-;; A rect filled with noise-driven color
-(def scene
-  (let [semantic
-        (ir/container [400 400]
-          {:r 20 :g 20 :b 30 :a 1.0}
-          [(ir/draw-item
-             (ir/rect-geometry [0 0] [400 400])
-             :fill (fill/procedural
-                     {:program/body
-                      [:color/rgb
-                       [:* 255
-                           [:clamp [:+ 0.5
-                                        [:* 0.5
-                                            [:field/noise
-                                             {:field/type :field/noise
-                                              :field/scale 4.0
-                                              :field/variant :fbm
-                                              :field/seed 42}
-                                             :uv]]]
-                            0.0 1.0]]
-                       100 200]}))])]
-    {:ir (lower/lower semantic)}))"]]
-       [:p "The program receives " [:code ":uv"] " as normalized [0..1] coordinates. It can use arithmetic, math functions, field sampling, color construction, and conditional logic."]
-       [:h4 "Expression Language"]
-       [:pre [:code
-              ";; Arithmetic: [:+ a b], [:- a b], [:* a b], [:/ a b]
-;; Math:       [:abs x], [:sqrt x], [:sin x], [:cos x], [:pow x n]
-;; Vectors:    [:vec2 x y], [:vec3 x y z]
-;; Access:     [:x v], [:y v]
-;; Mixing:     [:mix a b t], [:clamp x lo hi]
-;; Conditional: [:select pred a b]
-;; Fields:     [:field/noise {field-desc} position]
-;; Colors:     [:color/rgb r g b]"]]]}
+;; Grain — amount (0..1), seed
+{:node/type :group :group/filter [:grain 0.12 42] :group/children [,,,]}
 
-     {:id    "fields"
-      :title "Fields"
-      :content
-      [:div
-       [:p "A field is a function over 2D space that returns a value. Fields are reusable descriptors that can be consumed by procedural fills, generators, and programs."]
-       [:pre [:code
-              "(require '[eido.ir.field :as field])
+;; Posterize — number of levels
+{:node/type :group :group/filter [:posterize 3] :group/children [,,,]}
 
-;; Noise field — wraps eido.gen.noise with configurable parameters
-(def f (field/noise-field :scale 0.02 :variant :fbm
-                          :seed 42 :octaves 6))
+;; Blur — radius
+{:node/type :group :group/filter [:blur 8] :group/children [,,,]}
 
-;; Evaluate at a point
-(field/evaluate f 10.0 20.0)  ;; => -0.234...
-
-;; Other field types
-(field/constant-field 0.5)        ;; same value everywhere
-(field/distance-field [100 100])  ;; distance from center"]]
-       [:h4 "Noise Variants"]
-       [:p [:code ":raw"] " — plain Perlin noise, "
-        [:code ":fbm"] " — fractal Brownian motion (default), "
-        [:code ":turbulence"] " — absolute-value fbm, "
-        [:code ":ridge"] " — ridged multifractal."]]}
-
-     {:id    "semantic-fills"
-      :title "Semantic Fills"
-      :content
-      [:div
-       [:p "The semantic IR preserves fill intent as data instead of expanding to geometry immediately. Fill constructors create descriptors that are lowered to concrete drawing operations at render time."]
-       [:pre [:code
-              "(require '[eido.ir.fill :as fill])
-
-;; Solid color
-(fill/solid [:color/rgb 200 50 50])
-
-;; Gradient
-(fill/gradient :linear
-               [[0.0 [:color/rgb 255 0 0]]
-                [1.0 [:color/rgb 0 0 255]]]
-               :from [0 0] :to [200 0])
-
-;; Hatch — preserved as semantic data through the pipeline
-(fill/hatch {:hatch/angle 45 :hatch/spacing 5
-             :hatch/color [:color/rgb 0 0 0]})
-
-;; Stipple
-(fill/stipple {:stipple/density 0.6 :stipple/radius 2
-               :stipple/seed 42 :stipple/color [:color/rgb 0 0 0]})
-
-;; Procedural — per-pixel program evaluation
-(fill/procedural {:program/body [:color/rgb 255 0 0]})"]]]}
-
-     {:id    "semantic-effects"
-      :title "Semantic Effects"
-      :content
-      [:div
-       [:p "Effects are explicit descriptors attached to draw items. They are lowered to buffer compositing operations at render time."]
-       [:pre [:code
-              "(require '[eido.ir :as ir])
-(require '[eido.ir.effect :as effect])
-(require '[eido.ir.fill :as fill])
-
-(ir/draw-item
-  (ir/rect-geometry [50 50] [200 150])
-  :fill (fill/solid [:color/rgb 60 120 200])
-  :effects [(effect/shadow :dx 5 :dy 5 :blur 10
-                           :color [:color/rgb 0 0 0]
-                           :opacity 0.5)
-            (effect/glow :blur 12
-                         :color [:color/rgb 100 200 255]
-                         :opacity 0.6)])"]]
-       [:h4 "Filter Effects"]
-       [:p "Filter effects apply image-space processing: "
-        [:code "blur"] ", " [:code "grain"] ", " [:code "posterize"] ", "
-        [:code "duotone"] ", " [:code "halftone"] "."]
-       [:pre [:code
-              "(effect/grain :amount 40 :seed 42)
-(effect/posterize :levels 4)
-(effect/duotone :color-a [:color/rgb 20 20 60]
-                :color-b [:color/rgb 255 230 180])
-(effect/halftone :dot-size 8 :angle 45)"]]]}
-
-     {:id    "transforms"
-      :title "Transforms"
-      :content
-      [:div
-       [:p "Semantic transforms modify geometry before rendering — distortion, warping, and path morphing."]
-       [:pre [:code
-              "(require '[eido.ir.transform :as transform])
-
-;; Noise distortion on a path
-(ir/draw-item
-  (ir/path-geometry [[:move-to [0 100]] [:line-to [200 100]]])
-  :fill (fill/solid [:color/rgb 0 0 0])
-  :pre-transforms [(transform/distortion :noise
-                     {:amplitude 10 :frequency 0.05 :seed 42})])
-
-;; Warp a rect with wave deformation
-(ir/draw-item
-  (ir/rect-geometry [20 20] [160 160])
-  :fill (fill/solid [:color/rgb 100 150 200])
-  :pre-transforms [(transform/warp-transform :wave
-                     {:axis :y :amplitude 15 :wavelength 40})])
-
-;; Morph between two paths
-(transform/morph-transform target-path 0.5)"]]]}
-
-     {:id    "generators"
-      :title "Generators"
-      :content
-      [:div
-       [:p "Generators produce geometry procedurally — flow fields, contours, scatter distributions, Voronoi tessellation, decorators, and particles."]
-       [:pre [:code
-              "(require '[eido.ir.generator :as gen])
-
-;; Flow field from noise
-(gen/flow-field [0 0 400 300]
-  :opts {:density 20 :steps 50 :seed 42}
-  :style {:stroke {:color [:color/rgb 0 0 0] :width 1}})
-
-;; Contour lines at thresholds
-(gen/contour [0 0 400 300]
-  :opts {:thresholds [-0.2 0.0 0.2] :resolution 5})
-
-;; Scatter shapes at positions
-(gen/scatter-gen shape-node [[50 50] [150 150]]
-  :overrides (vary/by-gradient 2 [[0 red] [1 blue]]))
-
-;; Voronoi tessellation
-(gen/voronoi-gen points [0 0 400 300]
-  :style {:stroke {:color [:color/rgb 0 0 0] :width 1}})
-
-;; Particle snapshot at frame 30
-(gen/particle-gen fire-config 30 60)"]]]}
+;; Duotone — shadow color, highlight color
+{:node/type :group
+ :group/filter [:duotone [:color/rgb 0 20 60] [:color/rgb 0 255 200]]
+ :group/children [,,,]}"]]
+       [:p "Filters compose with everything else a group does — children, compositing, clipping. A blurred copy behind crisp shapes makes a glow; halftone over a flat fill makes a print-screen texture; duotone maps the group to a two-color range."]]}
 
      {:id    "materials"
-      :title "3D Materials"
+      :title "3D Materials & Lighting"
       :content
       [:div
-       [:p "Material descriptors add specular highlights to 3D meshes using Blinn-Phong shading."]
+       [:p "Beyond the flat shading shown in the " [:a {:href "#3d"} "3D"] " section, "
+        [:code "eido.ir.material"] " adds specular highlights (Blinn-Phong) and "
+        "richer light types. Materials and lights are plain data passed to "
+        [:code "s3d/render-mesh"] ", which shades every face and returns a 2D node group:"]
        [:pre [:code
-              "(require '[eido.ir.material :as material])
-(require '[eido.scene3d :as s3d])
+              "(require '[eido.scene3d :as s3d])
+(require '[eido.ir.material :as material])
 
-;; Phong material with specular highlights
 (s3d/render-mesh projection mesh
   {:style {:style/fill [:color/rgb 150 100 200]
-           :material (material/phong
-                       :specular 0.4
-                       :shininess 32.0)}
+           :material (material/phong :specular 0.4 :shininess 32.0)}
    :light {:light/direction [1 2 1]
-           :light/ambient 0.2
-           :light/intensity 0.8}})"]]
-       [:h4 "Light Types"]
+           :light/ambient 0.2 :light/intensity 0.8}})"]]
+       [:h4 "Light types"]
        [:pre [:code
               ";; Directional — parallel rays (like the sun)
 (material/directional [1 2 1] :multiplier 0.8 :ambient 0.2)
@@ -1198,8 +1044,8 @@
 (material/hemisphere
   [:color/rgb 135 180 220] [:color/rgb 40 30 20]
   :multiplier 0.3)"]]
-       [:h4 "Multi-Light"]
-       [:p "Use " [:code ":lights"] " to combine multiple lights. Each light's color tints its contribution."]
+       [:h4 "Multiple lights"]
+       [:p "Pass " [:code ":lights"] " (a vector) to combine lights — each light's color tints its contribution:"]
        [:pre [:code
               "(s3d/render-mesh proj mesh
   {:style {:style/fill [:color/rgb 200 200 200]
@@ -1209,68 +1055,7 @@
               :multiplier 1.5 :decay :inverse)
             (material/hemisphere
               [:color/rgb 40 50 80] [:color/rgb 15 10 5]
-              :multiplier 0.2)]})"]]]}
-
-     {:id    "multi-pass"
-      :title "Multi-Pass Rendering"
-      :content
-      [:div
-       [:p "Pipelines chain multiple passes — draw geometry, then apply effects."]
-       [:pre [:code
-              "(require '[eido.ir :as ir])
-(require '[eido.ir.effect :as effect])
-
-;; Draw shapes, then apply grain to the whole image
-(ir/pipeline [400 400]
-  background
-  [{:pass/id :draw :pass/type :draw-geometry
-    :pass/items [rect-item circle-item]}
-   (ir/effect-pass :grain (effect/grain :amount 30 :seed 42))])"]]]}
-
-     {:id    "domains"
-      :title "Domains"
-      :content
-      [:div
-       [:p "A domain describes the coordinate space over which a program or field is evaluated. Domains declare what bindings are available in the evaluation environment."]
-       [:pre [:code
-              "(require '[eido.ir.domain :as domain])
-
-;; Image grid — pixel coordinates with UV
-(domain/image-grid [800 600])
-;; Bindings: :uv [0..1, 0..1], :px, :py, :size
-
-;; World 2D — scene coordinates within bounds
-(domain/world-2d [0 0 400 300])
-;; Bindings: :pos [x y], :x, :y
-
-;; Other domains: shape-local, path-param, mesh-faces,
-;; points, particles, timeline"]]
-       [:p "Programs with a " [:code ":program/domain"] " validate that the evaluation environment provides the expected bindings."]]}
-
-     {:id    "resources"
-      :title "Resources"
-      :content
-      [:div
-       [:p "Resources are named objects that passes read and write. They make multi-pass data flow explicit."]
-       [:pre [:code
-              "(require '[eido.ir.resource :as resource])
-
-;; Declare resources
-(resource/image :buffer [400 300])
-(resource/mask :alpha-mask [400 300])
-(resource/parameter-block :params {:time 0.5 :seed 42})
-
-;; Pipeline with explicit resources
-(ir/pipeline [400 300] background
-  [{:pass/id :draw :pass/type :draw-geometry
-    :pass/target :framebuffer :pass/items [...]}
-   {:pass/id :process :pass/type :effect-pass
-    :pass/input :framebuffer :pass/target :output
-    :pass/effect (effect/grain :amount 30)}]
-  {:resources (resource/image :output [400 300])})
-
-;; Validate that all passes reference declared resources
-(resource/validate-pipeline-resources pipeline)"]]]}]}
+              :multiplier 0.2)]})"]]]}]}
 
    {:category "Recipes"
     :id       "recipes"
@@ -1283,7 +1068,6 @@
        [:p "The canonical workflow for seed-driven generative art (Art Blocks / fxhash style). One algorithm, many unique outputs."]
        [:pre [:code
               "(require '[eido.gen.series :as series])
-(require '[eido.gen.prob :as prob])
 (require '[eido.core :as eido])
 
 ;; 1. Define what varies across editions
@@ -1294,7 +1078,7 @@
    :bold?    {:type :boolean :probability 0.3}})
 
 ;; 2. Build a scene from sampled parameters
-(defn make-scene [params edition]
+(defn make-scene [params]
   {:image/size [800 800]
    :image/background [:color/hsl (:hue params) 0.15 0.95]
    :image/nodes
@@ -1303,14 +1087,12 @@
      :circle/radius (* 300 (/ (:density params) 40.0))
      :style/fill    [:color/hsl (:hue params) 0.7 0.5]}]})
 
-;; 3. Render a batch with metadata
-(series/render-editions
-  {:spec spec :master-seed 42
-   :start 0 :end 50
-   :scene-fn make-scene
-   :output-dir \"editions/\"
-   :traits {:density [[15 \"sparse\"] [25 \"medium\"] [100 \"dense\"]]}})"]]
-       [:p "Each edition gets a deterministic, uncorrelated seed. The same master-seed + edition-number always produces the same output. The metadata.edn file records parameters and derived traits for every edition."]]}
+;; 3. Render a batch — one deterministic param map per edition
+(doseq [[edition params]
+        (map-indexed vector (series/series-range spec 42 0 50))]
+  (eido/render (make-scene params)
+               {:output (str \"editions/edition-\" edition \".png\")}))"]]
+       [:p [:code "series-range"] " gives each edition a deterministic, uncorrelated seed, so the same master-seed and edition number always produce the same parameters — and therefore the same image."]]}
 
      {:id    "recipe-watercolor"
       :title "Watercolor / Ink Wash"
@@ -1336,27 +1118,20 @@
       :title "Paper Grain / Texture"
       :content
       [:div
-       [:p "Simulate the texture of physical media (watercolor paper, canvas) using the built-in grain effect and compositing:"]
+       [:p "Simulate the texture of physical media (watercolor paper, canvas) by wrapping your artwork in a group with a " [:code ":grain"] " filter:"]
        [:pre [:code
-              "(require '[eido.ir.effect :as effect])
-
-;; Paper grain overlay — applies to any artwork:
+              ";; Paper grain overlay — applies to everything in the group:
 {:image/size [600 400]
  :image/background [:color/rgb 245 240 230]
  :image/nodes
  [{:node/type :group
-   :group/composite :overlay
+   :group/filter [:grain 0.12 42]   ;; amount (0..1), seed
    :group/children
-   [;; Paper texture layer
-    {:node/type :shape/rect
-     :rect/xy [0 0] :rect/size [600 400]
-     :style/fill [:color/rgb 245 240 230]
-     :node/effects [(effect/grain {:amount 40 :seed 42})]}
-    ;; Your artwork goes here
+   [;; Your artwork goes here
     ,,,your nodes,,,]}]}"]]
-       [:p "The grain effect adds film-grain noise to a shape. Compositing via "
-        [:code ":overlay"] " or " [:code ":multiply"]
-        " blends it with the artwork underneath, simulating paper texture."]]}
+       [:p "The grain filter adds film-grain noise across the whole group. Combine it with a "
+        [:code ":group/composite"] " mode (" [:code ":overlay"] ", " [:code ":multiply"]
+        ") on a nested group to blend a texture layer over the artwork underneath."]]}
 
      {:id    "recipe-subdivide-pack"
       :title "Subdivide → Pack → Stylize"
@@ -1417,8 +1192,7 @@
                                   (aes/jittered-commands {:amount 1.5 :seed 42}))
                :style/stroke  {:color :black :width 0.8}}))
        vec))"]]
-       [:p "For plotter output, render with " [:code "{:stroke-only true :group-by-stroke true}"]
-        " to get clean, single-pen SVG layers."]]}
+       [:p "Streamlines make clean, single-weight line work — smoothing settles the curve, a touch of jitter keeps it from looking mechanical."]]}
 
      {:id    "recipe-ca-contour"
       :title "CA / Reaction-Diffusion → Contour → Palette"
@@ -1464,16 +1238,16 @@
    {:category "Paint Engine"
     :id       "paint"
     :intro    [:div
-               [:p "The paint engine renders brushstrokes as pixel-level dab sequences onto a tiled raster surface. "
-                "Everything is procedural — no bitmap textures. Brushes are data, strokes are data, and paint "
-                "composes naturally with generators like flow fields and scatter."]]
+               [:p "The paint engine renders brushstrokes as pixel-level dab sequences onto a raster surface — brushes are data, strokes are data. You author paint two ways: a standalone "
+                [:code ":paint/surface"] " node with explicit stroke points, or a group of brush-painted paths sharing one "
+                [:code ":paint/surface"] "."]]
     :sections
     [{:id    "paint-basics"
-      :title "Basics"
+      :title "Surfaces and Strokes"
       :content
       [:div
-       [:p "The simplest way to use paint is the standalone " [:code ":paint/surface"] " node. "
-        "Define strokes with explicit point data including pressure:"]
+       [:p "A " [:code ":paint/surface"] " node paints a list of strokes. Each stroke is a brush, a color, a radius, and a list of "
+        [:code "[x y]"] " points the dab follows:"]
        [:pre {:data-img "paint-chalk-sketch.png"} [:code
               "{:node/type :paint/surface
  :paint/size [600 400]
@@ -1481,198 +1255,51 @@
  [{:paint/brush  :chalk
    :paint/color  [:color/rgb 80 60 40]
    :paint/radius 12.0
-   :paint/points [[50 100 0.8 0 0 0]    ;; [x y pressure speed tilt-x tilt-y]
-                  [300 60 1.0 1.0 0 0]
-                  [550 100 0.3 0.5 0 0]]}]}"]]
-       [:p "Each point carries six values: x, y, pressure, speed, tilt-x, tilt-y. "
-        "Pressure modulates radius and opacity along the stroke."]
+   :paint/points [[50 100] [300 60] [550 100]]}]}"]]
        [:h4 "Brush presets"]
-       [:p "36 built-in presets cover dry media, ink, markers, paint, tools, and effects. "
-        "A few common ones:"]
+       [:p "Six presets cover the common media:"]
        [:pre [:code
-              ":chalk       ;; dry, textured with jitter
-:ink         ;; hard, high opacity
-:watercolor  ;; wet diffusion, granulation
-:oil         ;; smudge, color mixing
-:charcoal    ;; soft with heavy grain
-:flat-marker ;; glazed rectangular tip
-:brush-pen   ;; calligraphic
-:impasto     ;; thick paint with height"]]
-       [:p "Override any preset parameter:"]
+              ":pencil      ;; fine, firm
+:ink         ;; hard, high flow
+:marker      ;; chisel tip
+:watercolor  ;; soft, wide, low flow
+:oil         ;; elliptical tip
+:chalk       ;; soft, with grain"]]
+       [:p "Or override the brush directly instead of naming a preset — set the tip shape, hardness, flow, and blend mode:"]
        [:pre [:code
-              "{:paint/brush {:brush/type :brush/dab
-               :brush/tip {:tip/shape :ellipse :tip/hardness 0.9}
-               :brush/paint {:paint/opacity 0.7 :paint/spacing 0.03}}}"]]]}
+              "{:paint/brush {:brush/tip   {:tip/shape :ellipse :tip/hardness 0.9}
+               :brush/paint {:paint/flow 0.7 :paint/blend :multiply}}}"]]
+       [:p "Tip shapes: " [:code ":round"] ", " [:code ":ellipse"] ", " [:code ":chisel"] ", "
+        [:code ":rect"] ", " [:code ":line"] ". Blend modes: " [:code ":normal"] ", "
+        [:code ":multiply"] ", " [:code ":screen"] ", " [:code ":overlay"] ", "
+        [:code ":darken"] ", " [:code ":lighten"] ", " [:code ":add"] "."]]}
 
      {:id    "paint-paths"
-      :title "Painted Paths"
+      :title "Painting Paths"
       :content
       [:div
-       [:p "Add " [:code ":paint/brush"] " to any path node to render it as a painted stroke "
-        "instead of a vector shape:"]
-       [:pre {:data-img "paint-layered-strokes.png"} [:code
-              "{:node/type :shape/path
- :path/commands [[:move-to [50 100]]
-                 [:curve-to [150 30] [350 170] [550 100]]]
- :paint/brush :chalk
- :paint/color [:color/rgb 80 60 40]
- :paint/radius 12.0
- :paint/pressure [[0.0 0.3] [0.5 1.0] [1.0 0.1]]}"]]
-       [:p [:code ":paint/pressure"] " is a " [:code "[[t pressure] ...]"]
-        " curve where t goes from 0 (start) to 1 (end). "
-        "Pressure scales both radius and opacity."]]}
-
-     {:id    "paint-surfaces"
-      :title "Shared Surfaces"
-      :content
-      [:div
-       [:p "When multiple strokes need to interact (smudge, wet mixing), "
-        "wrap them in a group with " [:code ":paint/surface"] ":"]
-       [:pre [:code
+       [:p "To paint along curves instead of listing points, wrap brush-painted "
+        [:code ":shape/path"] " nodes in a group carrying " [:code ":paint/surface"]
+        ". Each path's commands become the stroke; give it a " [:code ":paint/brush"] ", "
+        [:code ":paint/color"] ", and " [:code ":paint/radius"] " (and no "
+        [:code ":style/fill"] " or " [:code ":style/stroke"] "):"]
+       [:pre {:data-img "paint-03-watercolor-wash.png"} [:code
               "{:node/type :group
- :paint/surface {:substrate/tooth 0.4}
+ :paint/surface {:paint/size [800 400]}
  :group/children
  [{:node/type :shape/path
-   :path/commands [...]
-   :paint/brush :oil
-   :paint/color [:color/rgb 200 60 30]}
+   :path/commands [[:move-to [20 250]]
+                   [:curve-to [200 100] [400 350] [780 200]]]
+   :paint/brush :watercolor
+   :paint/color [:color/hsl 210 0.45 0.65]
+   :paint/radius 45.0}
   {:node/type :shape/path
-   :path/commands [...]
-   :paint/brush :oil
-   :paint/color [:color/rgb 50 100 200]}]}"]]
-       [:p "All painted children render onto the same raster surface, so later strokes "
-        "can interact with earlier ones."]]}
-
-     {:id    "paint-generators"
-      :title "Composing with Generators"
-      :content
-      [:div
-       [:p "Paint parameters propagate through generators. "
-        "This means you can paint flow fields, scatter patterns, and symmetry groups:"]
-       [:pre {:data-img "paint-ink-flow.png"} [:code
-              "{:node/type :group
- :paint/surface {:paint/size [600 600]}
- :group/children
- [{:node/type :flow-field
-   :flow/bounds [30 30 540 540]
-   :flow/opts {:density 20 :steps 40 :seed 77}
+   :path/commands [[:move-to [120 220]]
+                   [:curve-to [300 150] [500 280] [680 180]]]
    :paint/brush :ink
-   :paint/color [:color/rgb 15 12 8]
-   :paint/radius 2.0}]}"]]
-       [:p "The flow field generates paths, and each path is rendered as a painted "
-        "stroke with the ink brush. The same approach works with "
-        [:code ":scatter"] ", " [:code ":symmetry"] ", and other generators."]]}
-
-     {:id    "paint-jitter"
-      :title "Stroke Texture (Jitter)"
-      :content
-      [:div
-       [:p "Per-dab variation creates realistic brush-mark texture. "
-        "Add " [:code ":brush/jitter"] " to any brush spec:"]
-       [:pre [:code
-              "{:brush/jitter {:jitter/position 0.15   ;; random X/Y offset (fraction of radius)
-                :jitter/opacity  0.25   ;; per-dab opacity variation
-                :jitter/size     0.1    ;; per-dab radius variation
-                :jitter/angle    0.15}} ;; random angle offset"]]
-       [:p "Presets like " [:code ":chalk"] ", " [:code ":pastel"] ", "
-        [:code ":oil"] ", and " [:code ":watercolor"] " include default jitter. "
-        "All jitter is deterministic — set " [:code ":paint/seed"] " for reproducible results."]]}
-
-     {:id    "paint-buildup"
-      :title "Buildup Modes"
-      :content
-      [:div
-       [:p "Control how paint accumulates within a stroke via "
-        [:code ":paint/blend"] " in the brush paint spec:"]
-       [:pre [:code
-              ";; Glazed — prevents over-saturation (markers, ink wash)
-{:brush/paint {:paint/blend :glazed ...}}
-
-;; Opaque — thick coverage (oil, acrylic, gouache)
-{:brush/paint {:paint/blend :opaque ...}}
-
-;; Erase — removes existing paint
-{:brush/paint {:paint/blend :erase ...}}"]]
-       [:p "For thick paint with visible height, add " [:code ":brush/impasto"] ":"]
-       [:pre [:code
-              "{:brush/impasto {:impasto/height 0.6}}  ;; simulates raised paint"]]]}
-
-     {:id    "paint-spatter"
-      :title "Spatter and Drip"
-      :content
-      [:div
-       [:p "Speed-driven particle emission creates spatter, drip, and spray effects:"]
-       [:pre [:code
-              "{:brush/spatter {:spatter/threshold 0.3   ;; speed above which spatter activates
-                :spatter/density   0.5   ;; particles per dab
-                :spatter/spread    3.0   ;; distance in radii
-                :spatter/size      [0.03 0.2]  ;; [min max] fraction of brush radius
-                :spatter/opacity   [0.2 0.7]   ;; [min max]
-                :spatter/mode      :scatter}}  ;; :scatter or :spray"]]
-       [:p "Modes: " [:code ":scatter"] " (perpendicular to stroke), "
-        [:code ":spray"] " (cone along stroke direction)."]]}
-
-     {:id    "paint-tools"
-      :title "Tool Presets"
-      :content
-      [:div
-       [:p "36 built-in presets organized by family:"]
-       [:pre [:code
-              ";; Dry media:     :pencil :graphite :charcoal :conte :chalk
-;;                :pastel :soft-pastel :crayon
-;; Ink & pen:     :ink :ballpoint :felt-tip :fountain-pen
-;;                :brush-pen :technical-pen
-;; Marker:        :marker :flat-marker :chisel-marker :highlighter
-;; Wet paint:     :watercolor :gouache :acrylic-wash
-;; Thick paint:   :oil :acrylic :impasto :tempera
-;; Tools:         :smudge-tool :palette-knife :eraser :blender
-;; Effects:       :airbrush :spray-paint :splatter
-;; Deform:        :push :swirl :blur-tool :sharpen-tool"]]
-       [:p "Each preset includes appropriate jitter, grain, buildup mode, and "
-        "interaction settings for realistic default behavior."]]}
-
-     {:id    "paint-deform"
-      :title "Deform Tools"
-      :content
-      [:div
-       [:p "Deform brushes modify existing pixels without depositing paint:"]
-       [:pre [:code
-              ";; Push pixels along stroke direction
-{:paint/brush :push :paint/radius 20.0}
-
-;; Swirl pixels around dab center
-{:paint/brush :swirl :paint/radius 25.0}
-
-;; Blur existing paint
-{:paint/brush :blur-tool :paint/radius 15.0}
-
-;; Sharpen edges
-{:paint/brush :sharpen-tool :paint/radius 12.0}"]]
-       [:p "These work on shared surfaces — lay down paint first, then deform it."]]}
-
-     {:id    "paint-helpers"
-      :title "UX Helpers"
-      :content
-      [:div
-       [:p "Convenience functions for programmatic artists without physical input devices:"]
-       [:pre [:code
-              "(require '[eido.paint :as paint])
-
-;; Auto-derive pressure from path geometry
-(paint/auto-pressure points {:mode :taper})   ;; bell-shaped
-(paint/auto-pressure points {:mode :curvature}) ;; tight curves = pressure
-(paint/auto-pressure points {:mode :speed})   ;; fast = lighter
-
-;; Auto-derive speed curve
-(paint/auto-speed points)
-
-;; Named dynamics profiles
-(paint/dynamics-profile :calligraphy)  ;; or :expressive :steady :feathered :bold
-
-;; One-call stroke creation with auto-derived pressure
-(paint/stroke-from-path path-commands
-  {:brush :chalk :color [:color/rgb 60 40 30] :radius 12
-   :dynamics :calligraphy})"]]]}]}
+   :paint/color [:color/rgb 25 30 50]
+   :paint/radius 2.5}]}"]]
+       [:p "All painted children render onto the same surface, so later strokes lay over earlier ones."]]}]}
 
    {:category "Output"
     :id       "output"
@@ -1681,36 +1308,28 @@
       :title "Export"
       :content
       [:div
-       [:p "Everything goes through one function — " [:code "eido/render"] ". The output format is determined by the file extension:"]
+       [:p "Everything goes through one function — " [:code "eido/render"] ". A single scene renders to PNG; a sequence of frames renders to an animated GIF:"]
        [:pre [:code
-              ";; Static images
-(eido/render scene {:output \"out.png\"})          ;; PNG (default)
-(eido/render scene {:output \"out.svg\"})          ;; SVG (vector)
-(eido/render scene {:output \"out.jpg\" :quality 0.9})
-(eido/render scene {:output \"out.tiff\" :dpi 300})  ;; archival TIFF
+              ";; Static image — PNG
+(eido/render scene {:output \"out.png\"})
 
-;; Animations
-(eido/render frames {:output \"anim.gif\" :fps 30})
-(eido/render frames {:output \"anim.svg\" :fps 30})  ;; animated SVG
-(eido/render frames {:output \"frames/\" :fps 30})   ;; PNG sequence"]]
+;; Animation — GIF (:fps default 12)
+(eido/render frames {:output \"anim.gif\" :fps 30})"]]
        [:h4 "Options"]
        [:pre [:code
-              ":scale 2                     ;; 2x resolution (retina)
-:dpi 300                     ;; DPI metadata (PNG/TIFF)
-:transparent-background true ;; no background fill
-:loop false                  ;; GIF plays once (default: loops)
-:tiff/compression :lzw       ;; TIFF: :lzw (default), :deflate, :none
-:quality 0.9                 ;; JPEG quality (0-1)"]]
-       [:p "Render without an output path to get a BufferedImage back for further processing, or use "
-        [:code ":format :svg"] " to get an SVG string."]
-       [:p "If the scene includes " [:code ":image/dpi"] ", PNG and TIFF output "
-        "automatically embed DPI metadata — no need to pass " [:code ":dpi"] " separately."]]}
+              ":output    ;; file path to write; omit to return the bytes
+:fps       ;; frames per second for an animation (default 12)
+:base-dir  ;; directory asset paths resolve against (default \".\")"]]
+       [:p "Called without " [:code ":output"] ", " [:code "render"] " returns a result map — "
+        [:code ":bytes"] " (the encoded PNG/GIF), " [:code ":media-type"] ", "
+        [:code ":width"] ", " [:code ":height"] ", and " [:code ":diagnostics"]
+        " — so you can hand the bytes to further processing instead of writing a file."]]}
 
      {:id    "print-ready"
       :title "Print-Ready Output"
       :content
       [:div
-       [:p "Artists producing physical output — prints, plotter work, fine art editions — need to think in centimeters or inches, not pixels. Eido provides resolution-independent coordinates and paper size presets."]
+       [:p "Artists producing physical output think in centimeters or inches, not pixels. Eido authoring provides paper-size presets and resolution-independent coordinates that you convert to pixels before rendering."]
        [:h4 "Paper size presets"]
        [:pre [:code
               "(require '[eido.scene :as scene])
@@ -1740,82 +1359,12 @@
              :circle/radius 5.0           ;; 5 cm radius
              :style/stroke {:color :black :width 0.1}}])  ;; 1mm stroke
     scene/with-units  ;; converts to pixels
-    (eido/render {:output \"print.tiff\"}))
-;; Output: 2480×3508 px TIFF at 300 DPI with embedded DPI metadata"]]
+    (eido/render {:output \"print.png\"}))
+;; Output: 2480x3508 px PNG at 300 DPI"]]
        [:p "Supported units: " [:code ":cm"] " (centimeters), "
         [:code ":mm"] " (millimeters), " [:code ":in"] " (inches)."]
        [:p [:code "with-units"] " is a pure function — it takes a data map and returns a data map. "
         "You can inspect the converted scene at the REPL before rendering."]]}
-
-     {:id    "polyline-export"
-      :title "Polyline Data Export"
-      :content
-      [:div
-       [:p "For CNC mills, laser cutters, and custom plotter software, raw coordinate data is more useful than rendered images. "
-        "Use " [:code ":format :polylines"] " to extract geometry as EDN:"]
-       [:pre [:code
-              ";; Extract polylines from any scene
-(eido/render scene {:format :polylines})
-;=> {:polylines [[[x1 y1] [x2 y2] ...] ...]
-;    :bounds [800 600]}
-
-;; Write to file
-(eido/render scene {:format :polylines :output \"paths.edn\"})
-
-;; Control curve resolution
-(eido/render scene {:format :polylines :flatness 0.5 :segments 64})"]]
-       [:p "All geometry is converted to polylines: curves are flattened via de Casteljau subdivision, "
-        "circles and ellipses are approximated as polygons. Groups are recursively traversed."]
-       [:p "Options: " [:code ":flatness"] " controls curve subdivision tolerance (default 0.5, lower = more points). "
-        [:code ":segments"] " controls circle/ellipse polygon resolution (default 64)."]]}
-
-     {:id    "plotter-svg"
-      :title "Plotter-Safe SVG"
-      :content
-      [:div
-       [:p "For pen plotters, use the plotter options to produce clean, stroke-only SVG:"]
-       [:pre [:code
-              ";; Stroke-only: removes all fills, suppresses background
-(eido/render scene {:output \"plotter.svg\" :stroke-only true})
-
-;; Group by stroke color: one <g> per pen/color
-(eido/render scene {:output \"plotter.svg\"
-                    :stroke-only true
-                    :group-by-stroke true})
-
-;; Full plotter pipeline: deduplicate, optimize pen travel
-(eido/render scene {:output \"plotter.svg\"
-                    :stroke-only      true
-                    :group-by-stroke  true
-                    :deduplicate      true
-                    :optimize-travel  true})"]]
-       [:p "With " [:code ":group-by-stroke"] ", each stroke color gets its own "
-        [:code "<g>"] " element with an id like " [:code "pen-rgb-0-0-0"]
-        ". Load the SVG in your plotter software and assign each group to a pen."]
-       [:p [:code ":deduplicate"] " removes identical paths (common with overlapping geometry). "
-        [:code ":optimize-travel"] " reorders drawing operations to minimize pen-up travel distance "
-        "using greedy nearest-neighbor — can significantly reduce total plot time."]]}
-
-     {:id    "batch-editions"
-      :title "Batch Edition Rendering"
-      :content
-      [:div
-       [:p "Render many editions at once with " [:code "series/render-editions"] ":"]
-       [:pre [:code
-              "(require '[eido.gen.series :as series])
-
-(series/render-editions
-  {:spec        {:hue {:type :uniform :lo 0 :hi 360}}
-   :master-seed 42
-   :start       0
-   :end         100
-   :scene-fn    (fn [params edition] (make-scene params))
-   :output-dir  \"editions/\"
-   :format      :png          ;; or :svg
-   :render-opts {:scale 2}    ;; passed to eido/render
-   :traits      {:hue [[120 \"cool\"] [240 \"warm\"] [360 \"hot\"]]}})"]]
-       [:p "This writes one file per edition plus a " [:code "metadata.edn"]
-        " containing the parameter values and derived traits for every edition."]]}
 
      {:id    "file-workflow"
       :title "File Workflow"
@@ -1834,44 +1383,24 @@
 
 ;; tap> integration — render by tapping
 (install-tap!)
-(tap> {:image/size [200 200] :image/nodes [...]})"]]]}
+(tap> {:image/size [200 200] :image/nodes [...]})"]]
+       [:p [:code "watch-file"] ", " [:code "watch-scene"] ", and " [:code "install-tap!"]
+        " are REPL helpers from " [:code "dev/user.clj"] "."]]}
 
      {:id    "validation"
       :title "Validation"
       :content
       [:div
-       [:p "Scenes are validated before rendering. If something is wrong, you get a clear error pointing to the exact problem:"]
+       [:p "The renderer validates every scene before drawing it. A malformed scene — an unknown node type, a missing required key, an out-of-range value — makes "
+        [:code "render"] " throw an " [:code "ex-info"] " instead of producing a broken image:"]
        [:pre [:code
-              "(eido/validate {:image/size [800 600]
-                :image/background [:color/rgb 255 255 255]
-                :image/nodes [{:node/type :shape/rect}]})
-;; => [{:path [:image/nodes 0]
-;;      :pred \"missing required key :rect/xy\" ...}]"]]
-       [:p "For a quick overview at the REPL, use " [:code "explain"] " to print formatted errors:"]
-       [:pre [:code
-              "(eido/explain {:image/size [800 600]
-                :image/background [:color/rgb 255 0]
-                :image/nodes [{:node/type :shape/polygon}]})
-;; 2 validation errors:
-;;
-;;   1. at [:image/background]: integer in 0..255, got: ()
-;;
-;;   2. at [:image/nodes 0]: unknown node type; valid types are:
-;;      :group, :shape/arc, :shape/circle, ..."]]
-       [:p "You can also format error data with " [:code "format-errors"] ":"]
-       [:pre [:code "(eido/format-errors (eido/validate scene))"]]
-       [:p "Invalid scenes throw " [:code "ex-info"] " with " [:code ":errors"] " in the exception data and a human-readable message, so you always know what went wrong."]
-       [:h4 "Validation in the REPL"]
-       [:p "The dev helpers " [:code "show"] ", " [:code "watch-file"] ", and " [:code "watch-scene"] " validate the first render, then skip validation on subsequent re-renders for faster iteration. This gives you error checking when starting up while keeping the feedback loop fast."]
-       [:p "To control validation explicitly, bind " [:code "eido/*validate*"] ":"]
-       [:pre [:code
-              ";; Skip validation for fast re-renders
-(binding [eido/*validate* false]
-  (eido/render scene))
-
-;; Or disable per-scene with a key
-(eido/render (assoc scene :eido/validate false))"]]
-       [:p [:code "*validate*"] " defaults to " [:code "true"] ". Validation adds roughly 7% overhead per render, so skipping it in tight iteration loops makes a noticeable difference."]]}
+              "(eido/render {:image/size [800 600]
+              :image/background [:color/rgb 255 255 255]
+              :image/nodes [{:node/type :shape/rect}]})  ;; missing :rect/xy
+;; throws ex-info; (ex-data e) =>
+;;   {:status :error
+;;    :diagnostics [ ,,, ]}"]]
+       [:p "The diagnostics are structured data — each carries a level, an error code, a message, and the path into the scene where the problem is — so you can surface them in your own tooling, not just read a stack trace."]]}
 
      {:id    "stability"
       :title "Stability"
@@ -1885,8 +1414,7 @@
        [:p "Most of Eido's API is stable. Provisional status is reserved for newer subsystems whose configuration surface is still being refined:"]
        [:ul
         [:li [:code "eido.gen.particle"] " — particle system configuration (emitters, forces, lifetime curves) may simplify as usage patterns emerge."]
-        [:li [:code "eido.texture"] " — texture and material helpers are new and may expand or restructure."]
-        [:li [:code "eido.paint"] " — paint engine brush specs, stroke parameters, and surface configuration are being refined."]]
+        [:li [:code "eido.texture"] " — texture and material helpers are new and may expand or restructure."]]
        [:p "Provisional does not mean broken — it means function names, argument shapes, or option keys might change in a future release. Pin a specific Eido version in your " [:code "deps.edn"] " to avoid surprises."]]}]}])
 
 ;; --- Architecture page ---
@@ -1906,22 +1434,16 @@
     :title "The Big Picture"
     :content
     [:div
-     [:p "A scene in Eido is a plain Clojure map. It goes through a pipeline of pure data transformations — validation, compilation, lowering, rendering — and comes out as pixels. No GPU, no OpenGL, no mutable state. Just functions that turn data into data, until the last step paints it onto a "
-      [:code "BufferedImage"] " using Java2D."]
+     [:p "A scene in Eido is a plain Clojure map. Eido's job is to let you author that map with comfortable, composable functions — then hand it to a fast native rendering engine that turns it into pixels. The authoring layer is pure data in, data out; the rendering engine is a separate native backend Eido drives through a thin bridge."]
      [:div.arch-pipeline
       [:div.arch-step [:div.arch-step-label "Scene Map"] [:div.arch-step-desc "your data"]]
-      [:div.arch-arrow "\u2192"]
-      [:div.arch-step [:div.arch-step-label "Validate"] [:div.arch-step-desc "spec check"]]
-      [:div.arch-arrow "\u2192"]
-      [:div.arch-step [:div.arch-step-label "Semantic IR"] [:div.arch-step-desc "draw items"]]
-      [:div.arch-arrow "\u2192"]
-      [:div.arch-step [:div.arch-step-label "Lower"] [:div.arch-step-desc "expand generators"]]
-      [:div.arch-arrow "\u2192"]
-      [:div.arch-step [:div.arch-step-label "Concrete Ops"] [:div.arch-step-desc "flat records"]]
-      [:div.arch-arrow "\u2192"]
-      [:div.arch-step.arch-step--final [:div.arch-step-label "Render"] [:div.arch-step-desc "Java2D \u2192 pixels"]]]
-     [:p "Each step is a pure function. The scene map goes in one end, a "
-      [:code "BufferedImage"] " comes out the other. Every intermediate result is inspectable data — you can print it, diff it, serialize it. The rendering backend (currently Java2D) is isolated behind the concrete ops layer, so a future WebGL or Skia backend would only need to implement the final step."]]}
+      [:div.arch-arrow "→"]
+      [:div.arch-step [:div.arch-step-label "Translate"] [:div.arch-step-desc "to engine grammar"]]
+      [:div.arch-arrow "→"]
+      [:div.arch-step [:div.arch-step-label "Render"] [:div.arch-step-desc "validate + rasterize"]]
+      [:div.arch-arrow "→"]
+      [:div.arch-step.arch-step--final [:div.arch-step-label "Output"] [:div.arch-step-desc "PNG / GIF bytes"]]]
+     [:p "Everything up to the render call is inspectable Clojure data — you can print it, diff it, serialize it. The rendering engine is encapsulated: you need a JVM, not a separate install, and the same engine renders whether you call it from a script, the REPL, or a batch job."]]}
 
    ;; --- Step 1: Scene Map ---
    {:id "scene-map"
@@ -1945,209 +1467,58 @@
       [:code ":shape/circle"] ", " [:code ":shape/rect"] ", " [:code ":shape/path"]
       "), groups (" [:code ":group"] " with " [:code ":group/children"]
       "), or generators (" [:code ":flow-field"] ", " [:code ":contour"] ", " [:code ":scatter"]
-      ") that produce shapes during compilation."]
+      ") that expand into shapes during rendering."]
      [:p (arch-src-link "src/eido/core.clj" "View eido.core on GitHub")]]}
 
-   ;; --- Step 2: Validation ---
-   {:id "validation"
-    :title "Step 2: Validation"
+   ;; --- Step 2: Translation ---
+   {:id "translation"
+    :title "Step 2: Translation"
     :content
     [:div
-     [:p "Before any work happens, the scene is validated against a comprehensive spec. Color formats, node types, transform syntax, path commands — all checked. If something's wrong, you get a clear error pointing to exactly where:"]
-     [:p "For example, if you pass a negative radius, a made-up color format, and a number where a vector was expected:"]
-     [:pre.arch-error [:code
-            ";; This scene has three deliberate mistakes:
-;; {:image/nodes [{:circle/radius -5}
-;;                {:style/fill [:color/invalid ...]}
-;;                {:rect/size 100}]}
-;;
-;; Eido catches all of them before rendering:
+     [:p "Eido's authoring grammar and the engine's grammar aren't identical, so a pure translation step maps one to the other. Colors resolve to 0..1 channels, path verbs shorten ("
+      [:code "[:move-to [x y]]"] " becomes " [:code "[:move x y]"]
+      "), semantic fills and gradients become tagged vectors, generators lower to generator nodes, rotations convert from radians to degrees, and paint surfaces become a paint program."]
+     [:p "The translation is a plain function — scene data in, scene data out — so you can inspect exactly what the engine will receive before anything is rendered."]
+     [:p (arch-src-link "src/eido/clojo/translate.clj" "View the translator on GitHub")]]}
 
-Invalid scene — 3 validation errors:
-
-  1. at [:image/nodes 0 :circle/radius]: positive number, got: -5
-  2. at [:image/nodes 1 :style/fill 0]: known color format, got: :color/invalid
-  3. at [:image/nodes 1 :rect/size]: vector of [w h], got: 100"]]
-     [:p "Each error tells you the path into the data structure, what was expected, and what was found. Mistakes are caught at the boundary — before they become mysterious rendering glitches deep in the pipeline."]
-     [:p "Validation uses " [:code "clojure.spec.alpha"]
-      " with multimethod dispatch on " [:code ":node/type"]
-      ". It's optional — bind " [:code "eido/*validate*"]
-      " to " [:code "false"] " for faster REPL iteration once your scene structure is stable."]
-     [:p (arch-src-link "src/eido/validate.clj" "View validation on GitHub") " · "
-      (arch-src-link "src/eido/spec.clj" "View spec definitions on GitHub")]]}
-
-   ;; --- Step 3: Semantic IR ---
-   {:id "semantic-ir"
-    :title "Step 3: Semantic IR"
-    :content
-    [:div
-     [:p "The scene map is compiled into a " [:em "semantic intermediate representation"]
-      " — a structured container that preserves your intent. Shapes become draw items with separate slots for geometry, fill, stroke, effects, and transforms. Generators and procedural fills are kept as-is — they haven't been expanded yet."]
-     [:pre [:code
-            ";; A circle node becomes a draw item:
-{:item/geometry {:geometry/type :circle
-                 :geometry/cx 200 :geometry/cy 150
-                 :geometry/r 80}
- :item/fill     {:r 255 :g 127 :b 80 :a 1.0}
- :item/stroke   nil
- :item/opacity  1.0
- :item/transforms []}
-
-;; A flow-field generator is preserved, not yet expanded:
-{:item/generator {:generator/type :flow-field
-                  :flow-field/bounds [0 0 400 300]
-                  :flow-field/opts {:density 20 :steps 30 :seed 42}}
- :item/fill {:r 0 :g 0 :b 0 :a 1.0}}"]]
-     [:p "Why two layers? Because generators like flow fields produce " [:em "hundreds"] " of path nodes when expanded. Keeping them as compact descriptions in the semantic IR means you can inspect, serialize, and diff scenes efficiently. The expansion happens in the next step — lowering."]
-     [:p "The IR container wraps everything in a rendering pass structure:"]
-     [:pre [:code
-            "{:ir/version 1
- :ir/size [400 300]
- :ir/background {:r 250 :g 240 :b 230 :a 1.0}
- :ir/passes [{:pass/id :draw-main
-              :pass/type :draw-geometry
-              :pass/items [draw-item-1 draw-item-2 ...]}]
- :ir/outputs {:default :framebuffer}}"]]
-     [:p (arch-src-link "src/eido/engine/compile.clj" "View compilation on GitHub")]]}
-
-   ;; --- Step 4: Lowering ---
-   {:id "lowering"
-    :title "Step 4: Lowering"
-    :content
-    [:div
-     [:p "This is where the magic happens. Lowering walks the semantic IR and expands everything into concrete drawing operations. Generators become shapes. Procedural fills become clipped lines or dots. Effects become offscreen buffer operations."]
-     [:h4 "Generator expansion"]
-     [:p "A flow-field description becomes hundreds of actual path nodes:"]
-     [:pre {:data-img "docs-arch-flowfield.png"} [:code
-            ";; Before lowering (semantic IR):
-{:generator/type :flow-field
- :flow-field/bounds [0 0 400 300]
- :flow-field/opts {:density 25 :steps 30 :seed 42}}
-
-;; After lowering (concrete ops):
-[PathOp{:commands [[:move-to [23 45]] [:line-to [25 47]] ...]}
- PathOp{:commands [[:move-to [67 12]] [:line-to [69 14]] ...]}
- PathOp{:commands [[:move-to [112 89]] [:line-to [114 91]] ...]}
- ... ;; ~80 path ops from one generator
-]"]]
-     [:p "Each generator type calls its corresponding " [:code "eido.gen.*"]
-      " module — flow fields call " [:code "eido.gen.flow/flow-field"]
-      ", scatter calls " [:code "eido.gen.scatter/scatter->nodes"]
-      ", and so on. The lowering step bridges the gap between the artist's intent and the renderer's needs."]
-     [:h4 "Fill expansion"]
-     [:p "Procedural fills like hatching and stippling are expanded into actual geometry, clipped to the shape they fill:"]
-     [:pre {:data-img "docs-arch-hatch.png"} [:code
-            ";; Before: a circle with a hatch fill (semantic IR)
-{:geometry/type :circle :geometry/r 80
- :fill {:fill/type :hatch
-        :hatch/angle 45 :hatch/spacing 4}}
-
-;; After: concrete line ops clipped to the circle
-[PathOp{:commands [...] :clip circle-area}
- PathOp{:commands [...] :clip circle-area}
- ...]"]]
-     [:h4 "Effect wrapping"]
-     [:p "Effects like shadows and glows become offscreen buffer operations — the shape is painted to a temporary image, the effect is applied, then composited onto the main canvas:"]
-     [:pre [:code
-            ";; Shadow effect → duplicate shape + blur + offset
-BufferOp{:composite :src-over
-         :filter {:type :blur :radius 8}
-         :transforms [[:translate 4 4]]
-         :ops [CircleOp{...shadow-color...}]}
-CircleOp{...original-shape...}"]]
-     [:p (arch-src-link "src/eido/ir/lower.clj" "View lowering on GitHub") " · "
-      (arch-src-link "src/eido/ir/generator.clj" "View generator expansion on GitHub") " · "
-      (arch-src-link "src/eido/ir/fill.clj" "View fill expansion on GitHub")]]}
-
-   ;; --- Step 5: Concrete Ops ---
-   {:id "concrete-ops"
-    :title "Step 5: Concrete Ops"
-    :content
-    [:div
-     [:p "After lowering, the entire scene is a flat vector of records — one per visible shape. No more nesting, no more generators, no more deferred computation. Just a sequence of drawing instructions:"]
-     [:pre [:code
-            "[CircleOp {:cx 200 :cy 150 :r 80
-            :fill {:r 255 :g 127 :b 80 :a 1.0}
-            :stroke-color nil :opacity 1.0
-            :transforms [] :clip nil}
- RectOp   {:x 50 :y 50 :w 100 :h 60
-            :fill {:r 70 :g 130 :b 180 :a 1.0}
-            :stroke-color nil :opacity 1.0
-            :transforms [] :clip nil}]"]]
-     [:p "Each op is a Clojure record — a compiled JVM class with O(1) field access, but still implementing " [:code "IPersistentMap"] " so you can use " [:code "(:cx op)"] " like a regular map. The op types are:"]
-     [:ul
-      [:li [:code "RectOp"] " — rectangles (with optional corner radius)"]
-      [:li [:code "CircleOp"] " — circles"]
-      [:li [:code "EllipseOp"] " — ellipses"]
-      [:li [:code "ArcOp"] " — arcs and pie slices"]
-      [:li [:code "LineOp"] " — line segments"]
-      [:li [:code "PathOp"] " — arbitrary paths (bezier curves, polygons, freeform)"]
-      [:li [:code "BufferOp"] " — compositing groups (contains child ops, rendered to offscreen buffer)"]]
-     [:p "This flat structure is what the renderer consumes. It's also what the SVG exporter reads — both backends work from the same concrete ops, just painting to different targets."]
-     [:p (arch-src-link "src/eido/engine/compile.clj" "View op records on GitHub")]]}
-
-   ;; --- Step 6: Rendering ---
+   ;; --- Step 3: Rendering ---
    {:id "rendering"
-    :title "Step 6: Rendering"
+    :title "Step 3: Rendering"
     :content
     [:div
-     [:p "The renderer walks the op vector top to bottom, painting each shape onto a " [:code "BufferedImage"] " using Java2D's " [:code "Graphics2D"] " API. For each op:"]
-     [:pre [:code
-            ";; Pseudocode for the rendering loop:
-(for-each op in ops
-  1. Save Graphics2D state
-  2. Apply transforms (translate, rotate, scale)
-  3. Set clip region (if present)
-  4. Set opacity via AlphaComposite
-  5. Convert geometry to Java2D Shape
-  6. Fill the shape (solid, gradient, or texture)
-  7. Stroke the shape (if stroke specified)
-  8. Restore Graphics2D state)"]]
-     [:p [:code "BufferOp"] " groups get special handling — their children are rendered to a temporary offscreen image, post-processing filters (blur, grain, posterize) are applied, then the result is composited onto the main canvas using the specified blend mode (" [:code ":src-over"] ", " [:code ":multiply"] ", " [:code ":screen"] ", etc.)."]
-     [:p "Java2D handles antialiasing, sub-pixel positioning, and bezier curve rasterization. Eido doesn't implement a software rasterizer — it leans on the JVM's mature 2D graphics stack."]
-     [:p (arch-src-link "src/eido/engine/render.clj" "View renderer on GitHub")]]}
+     [:p "The translated scene goes to the native rendering engine. It validates the scene, expands generators into geometry, rasterizes every shape, and returns the encoded image bytes together with any diagnostics. A malformed scene comes back as structured diagnostics rather than a crash — see the "
+      [:a {:href "../manual/#validation"} "Validation"] " section."]
+     [:p "Each call is stateless, so a render is reproducible: the same scene always produces the same bytes. That determinism is what makes seed-driven edition work dependable — an edition number always resolves to the same image."]
+     [:p (arch-src-link "src/eido/clojo.clj" "View the render bridge on GitHub")]]}
 
-   ;; --- Step 7: Output ---
+   ;; --- Output ---
    {:id "output"
-    :title "Step 7: Output"
+    :title "Step 4: Output"
     :content
     [:div
-     [:p "The " [:code "BufferedImage"] " is the universal intermediate. Every raster output format reads from it:"]
-     [:ul
-      [:li [:strong "PNG"] " — via " [:code "ImageIO.write"] " (with optional DPI metadata for print)"]
-      [:li [:strong "JPEG"] " — ARGB composited onto white, then written with quality setting"]
-      [:li [:strong "GIF"] " — single frame via ImageIO, animated via a custom GIF encoder that writes frame delays and loop flags"]
-      [:li [:strong "BMP"] " — via ImageIO (RGB)"]]
-     [:p "SVG takes a completely different path — it reads the concrete ops directly and emits XML elements (" [:code "<rect>"] ", " [:code "<circle>"] ", " [:code "<path>"] ") instead of painting pixels. Same ops, different output."]
-     [:p "Animations are just sequences of scenes. Eido renders each frame independently, then stitches them together:"]
+     [:p "A single scene renders to PNG; a sequence of frames renders to an animated GIF. Call "
+      [:code "render"] " with " [:code ":output"] " to write a file, or without it to get the encoded bytes back as a value for further processing:"]
      [:pre [:code
-            ";; 60 scenes → 60 BufferedImages → animated GIF
-(eido/render
-  (anim/frames 60
-    (fn [t] {:image/size [400 300] ...}))
-  {:output \"animation.gif\" :fps 30})"]]
-     [:p (arch-src-link "src/eido/engine/gif.clj" "View GIF encoder on GitHub") " · "
-      (arch-src-link "src/eido/engine/svg.clj" "View SVG exporter on GitHub")]]}
+            "(eido/render scene  {:output \"out.png\"})
+(eido/render frames {:output \"anim.gif\" :fps 30})
+
+;; No :output — returns {:bytes ... :media-type ... :width ... :height ...}
+(eido/render scene)"]]]}
 
    ;; --- Design Decisions ---
    {:id "design"
     :title "Design Decisions"
     :content
     [:div
-     [:h4 "Why two IR layers?"]
-     [:p "The semantic IR keeps the artist's intent intact — a flow field is one compact description, not 200 path nodes. This makes scenes diffable, serializable, and inspectable. The concrete IR is optimized for rendering — flat, no generators, every shape fully resolved. Separating these concerns means you can work with scenes at the right level of abstraction for each task."]
-     [:h4 "Why CPU rendering?"]
-     [:p "Java2D runs everywhere the JVM runs — no GPU drivers, no platform-specific shader compilation, no WebGL context limits. The output is deterministic (same input → same pixels, always), which matters for reproducible generative art. For the image sizes generative artists typically work with (up to ~4K), CPU rendering is fast enough. A GPU backend could be added later by implementing the concrete ops → pixels step without changing anything else."]
-     [:h4 "Why records for concrete ops?"]
-     [:p [:code "defrecord"] " gives O(1) field access (compiled JVM class) while still acting as an immutable map. The renderer touches " [:code ":cx"] ", " [:code ":cy"] ", " [:code ":fill"]
-      " etc. on every op — fast field access matters in the inner loop."]
-     [:h4 "Why expand generators during lowering?"]
-     [:p "Generators depend on geometry for their output (a flow field needs to know its bounds, a hatch fill needs the shape it's filling). By the time lowering runs, geometry is resolved. Expanding earlier would require passing incomplete information; expanding later would force the renderer to understand generators. Lowering is the natural boundary."]
-     [:h4 "Data all the way down"]
-     [:p "Every intermediate result in the pipeline is printable, serializable Clojure data. No opaque objects, no hidden state. You can " [:code "prn"]
-      " the semantic IR, " [:code "prn"] " the concrete ops, save them to a file, load them back, or write tests against them. Hell, even store them in a "
-      [:a {:href "https://www.datomic.com" :target "_blank"} "Datomic"]
-      " database if you want. This is the core design principle — the image is a value."]]}
+     [:h4 "Authoring core, native render shell"]
+     [:p "Eido's authoring layer is pure Clojure — every function takes data and returns data. The heavy pixel work lives in a separate native engine. That split keeps the authoring side easy to test, inspect, and compose, while the rendering side stays fast and portable."]
+     [:h4 "Data all the way to the engine"]
+     [:p "Every intermediate — the scene map, the translated scene — is printable, serializable Clojure data. You can " [:code "prn"]
+      " it, save it to a file, load it back, or write tests against it. The image is a value."]
+     [:h4 "Reproducible by construction"]
+     [:p "Each render is stateless and deterministic: the same scene yields the same bytes, every time and on every platform. Reproducibility is a requirement for generative editions, not a nice-to-have."]
+     [:h4 "No toolchain to install"]
+     [:p "The native engine ships compiled inside the library for each supported platform. Consumers need a JVM — no separate engine install, no build step on their machine."]]}
 
    ;; --- Source Map ---
    {:id "source-map"
@@ -2158,30 +1529,22 @@ CircleOp{...original-shape...}"]]
      [:table.arch-source-table
       [:thead [:tr [:th "Namespace"] [:th "Role"] [:th "Source"]]]
       [:tbody
-       [:tr [:td [:code "eido.core"]] [:td "Entry point — " [:code "render"] ", file I/O, format detection"] [:td (arch-src-link "src/eido/core.clj" "core.clj")]]
-       [:tr [:td [:code "eido.validate"]] [:td "Scene validation with detailed error messages"] [:td (arch-src-link "src/eido/validate.clj" "validate.clj")]]
-       [:tr [:td [:code "eido.spec"]] [:td "Spec definitions for nodes, colors, transforms"] [:td (arch-src-link "src/eido/spec.clj" "spec.clj")]]
-       [:tr [:td [:code "eido.engine.compile"]] [:td "Scene → Semantic IR, concrete op records"] [:td (arch-src-link "src/eido/engine/compile.clj" "compile.clj")]]
-       [:tr [:td [:code "eido.ir.lower"]] [:td "Semantic IR → Concrete ops (generator expansion, fill resolution)"] [:td (arch-src-link "src/eido/ir/lower.clj" "lower.clj")]]
-       [:tr [:td [:code "eido.ir.generator"]] [:td "Expands flow-field, scatter, voronoi, contour, etc."] [:td (arch-src-link "src/eido/ir/generator.clj" "generator.clj")]]
-       [:tr [:td [:code "eido.ir.fill"]] [:td "Expands hatch and stipple fills into geometry"] [:td (arch-src-link "src/eido/ir/fill.clj" "fill.clj")]]
-       [:tr [:td [:code "eido.ir.effect"]] [:td "Wraps effects (shadow, glow, blur) as buffer ops"] [:td (arch-src-link "src/eido/ir/effect.clj" "effect.clj")]]
-       [:tr [:td [:code "eido.engine.render"]] [:td "Concrete ops → BufferedImage via Java2D"] [:td (arch-src-link "src/eido/engine/render.clj" "render.clj")]]
-       [:tr [:td [:code "eido.engine.svg"]] [:td "Concrete ops → SVG XML string"] [:td (arch-src-link "src/eido/engine/svg.clj" "svg.clj")]]
-       [:tr [:td [:code "eido.engine.gif"]] [:td "Animated GIF encoder"] [:td (arch-src-link "src/eido/engine/gif.clj" "gif.clj")]]
+       [:tr [:td [:code "eido.core"]] [:td "Entry point — " [:code "render"] " and scene loading"] [:td (arch-src-link "src/eido/core.clj" "core.clj")]]
+       [:tr [:td [:code "eido.clojo"]] [:td "Bridge to the native rendering engine"] [:td (arch-src-link "src/eido/clojo.clj" "clojo.clj")]]
+       [:tr [:td [:code "eido.clojo.translate"]] [:td "Eido grammar to engine grammar"] [:td (arch-src-link "src/eido/clojo/translate.clj" "translate.clj")]]
+       [:tr [:td [:code "eido.scene"]] [:td "Layout helpers, paper presets, unit conversion"] [:td (arch-src-link "src/eido/scene.clj" "scene.clj")]]
        [:tr [:td [:code "eido.gen.*"]] [:td "Generative modules (noise, flow, circle packing, boids, etc.)"] [:td (arch-src-link "src/eido/gen/" "gen/")]]
+       [:tr [:td [:code "eido.path.*"]] [:td "Path stroking, distortion, warping, aesthetics"] [:td (arch-src-link "src/eido/path/" "path/")]]
+       [:tr [:td [:code "eido.scene3d.*"]] [:td "3D mesh construction, cameras, shading to 2D nodes"] [:td (arch-src-link "src/eido/scene3d/" "scene3d/")]]
        [:tr [:td [:code "eido.color"]] [:td "Color parsing, conversion, and manipulation"] [:td (arch-src-link "src/eido/color.clj" "color.clj")]]
-       [:tr [:td [:code "eido.scene"]] [:td "Layout helpers and node constructors"] [:td (arch-src-link "src/eido/scene.clj" "scene.clj")]]]]]}])
+       [:tr [:td [:code "eido.animate"]] [:td "Frame sequencing and easing"] [:td (arch-src-link "src/eido/animate.clj" "animate.clj")]]]]]}])
 
 ;; --- Intent cards for Guide intro ---
 
 (defn intent-cards
   "Artist intent cards — maps artistic goals to workflows and recipes."
   []
-  [{:intent "I want to make plotter line work"
-    :links [{:label "Plotter workflow" :href "../../workflows/plotter/"}
-            {:label "Path aesthetics" :href "#recipe-flow-path"}]}
-   {:intent "I want to create painterly generative fields"
+  [{:intent "I want to create painterly generative fields"
     :links [{:label "Paint workflow" :href "../../workflows/paint/"}
             {:label "Flow field recipe" :href "#recipe-flow-path"}]}
    {:intent "I want to build geometric grids and patterns"
@@ -2209,30 +1572,30 @@ CircleOp{...original-shape...}"]]
     :title "What Eido Is"
     :content
     [:div
-     [:p "Eido is a " [:strong "declarative, data-first Clojure library for generative art"] ". You describe images as plain data — maps, vectors, keywords — and Eido renders them to the medium you're working in."]
+     [:p "Eido is a " [:strong "declarative, data-first Clojure library for generative art"] ". You describe images as plain data — maps, vectors, keywords — and a native engine renders them."]
      [:p "It's an " [:strong "end-to-end toolkit"] " for the full arc of a generative art practice — from REPL sketching to finished output. One library covers:"]
      [:ul
-      [:li [:strong "Screen"] " — raster PNG, animated GIF, and animated SVG for digital editions and screens."]
-      [:li [:strong "Print"] " — real-world units, paper presets, DPI control, and archival TIFF for giclée and fine-art printing."]
-      [:li [:strong "Fabrication"] " — stroke-only SVG with pen layers, deduplication, and travel optimization for pen plotters, and polyline export for CNC mills and laser cutters."]
-      [:li [:strong "Editions"] " — deterministic seed-driven series with parameter specs, trait manifests, and contact sheets."]]
+      [:li [:strong "Screen"] " — raster PNG for stills and animated GIF for motion."]
+      [:li [:strong "Print"] " — real-world units and paper-size presets, so you can author in centimeters or inches and render at print resolution."]
+      [:li [:strong "Editions"] " — deterministic seed-driven series with parameter specs and trait analysis."]
+      [:li [:strong "3D"] " — mesh construction, cameras, and shading that resolve to 2D nodes for rendering."]]
      [:p "The design commitments that keep the toolkit small:"]
      [:ul
-      [:li [:strong "A library, not a framework."] " Every function takes data and returns data. You bring your own workflow, editor, and REPL."]
-      [:li [:strong "Zero production dependencies."] " Just Clojure and the standard library. Nothing to install, nothing to break."]
-      [:li [:strong "REPL-driven."] " The primary development loop is edit → evaluate → inspect → adjust. No compile step, no build tool."]]
-     [:p [:strong "Eido is an art tool."] " It was designed around the practice of generative artists — plotter artists, edition makers, creative coders — not around the needs of data visualization, dashboards, or scientific charting. Data-viz work is possible with the same primitives, but the API, gallery, defaults, and documentation all pull toward artmaking. If your primary goal is communicating data, reach for a dedicated charting library instead (see " [:a {:href "#alternatives"} "When to Use Something Else"] ")."]]}
+      [:li [:strong "A library, not a framework."] " Every authoring function takes data and returns data. You bring your own workflow, editor, and REPL."]
+      [:li [:strong "No toolchain to install."] " The native rendering engine ships compiled inside the library — you need a JVM, nothing else."]
+      [:li [:strong "REPL-driven."] " The primary development loop is edit, evaluate, inspect, adjust."]]
+     [:p [:strong "Eido is an art tool."] " It was designed around the practice of generative artists — edition makers, creative coders — not around the needs of data visualization, dashboards, or scientific charting. Data-viz work is possible with the same primitives, but the API, gallery, defaults, and documentation all pull toward artmaking. If your primary goal is communicating data, reach for a dedicated charting library instead (see " [:a {:href "#alternatives"} "When to Use Something Else"] ")."]]}
 
    {:id "practical-limits"
     :title "Practical Limits"
     :content
     [:div
      [:ul
-      [:li [:strong "Software rendering only."] " Eido uses Java2D — no GPU acceleration. This is deliberate: it keeps the library portable and zero-dep, but it means rendering is CPU-bound."]
-      [:li [:strong "Memory scales with scene complexity."] " Every node in a scene is an in-memory data structure. Scenes with 100k+ nodes will use significant heap space. Large batch renders benefit from the " [:code ":perf"] " alias JVM flags."]
-      [:li [:strong "Sequential animation rendering."] " Each frame is rendered independently. A 300-frame animation at high resolution takes 300× the single-frame time. There is no incremental or delta-based rendering."]
-      [:li [:strong "Single-threaded rendering."] " The render pipeline processes one scene at a time. Parallelism is available at the batch level (e.g., rendering editions with " [:code "pmap"] "), but a single render call is single-threaded."]
-      [:li [:strong "No streaming or progressive output."] " The full scene must fit in memory. There is no tiled or chunked rendering for very large canvases."]]]}
+      [:li [:strong "CPU rendering."] " The engine rasterizes on the CPU — no GPU acceleration. This keeps rendering portable and deterministic, at the cost of being CPU-bound for very large or very complex scenes."]
+      [:li [:strong "Memory scales with scene complexity."] " Every node in a scene is an in-memory data structure. Scenes with 100k+ nodes use significant heap space."]
+      [:li [:strong "Sequential animation rendering."] " Each frame is rendered independently. A 300-frame animation takes roughly 300x the single-frame time; there is no delta-based rendering."]
+      [:li [:strong "Raster output."] " Eido renders to PNG and animated GIF. There is no built-in vector (SVG/DXF) or motion-control (G-code/HPGL) export."]
+      [:li [:strong "No streaming or progressive output."] " The full scene must fit in memory; there is no tiled or chunked rendering for very large canvases."]]]}
 
    {:id "non-goals"
     :title "Non-Goals"
@@ -2240,7 +1603,7 @@ CircleOp{...original-shape...}"]]
     [:div
      [:p "These are things Eido intentionally does not do. They represent different tools with different constraints — not missing features."]
      [:ul
-      [:li [:strong "No GUI editor."] " Eido is a library for programmers. Use your preferred editor and REPL. A visual seed browser is a separate project idea (see IDEAS.md)."]
+      [:li [:strong "No GUI editor."] " Eido is a library for programmers. Use your preferred editor and REPL."]
       [:li [:strong "No CAD/CAM precision modeling."] " Eido's geometry is for visual output, not engineering tolerance. For precision modeling, use OpenSCAD or similar."]
       [:li [:strong "No audio or livecoding."] " Eido is a visual system. For audio-visual work, pair it with Overtone or Sonic Pi."]
       [:li [:strong "No web IDE or browser runtime."] " Eido runs on the JVM. ClojureScript is not a target."]
@@ -2255,6 +1618,6 @@ CircleOp{...original-shape...}"]]
      [:ul
       [:li [:strong "Interactive graphics"] " — Processing, p5.js, nannou. When you need real-time interaction, mouse input, or immediate visual feedback beyond the REPL preview."]
       [:li [:strong "Photorealistic rendering"] " — Blender, Mitsuba, POV-Ray. When you need physically accurate light transport."]
-      [:li [:strong "Precision CAD"] " — OpenSCAD, FreeCAD. When you need engineering tolerances and manufacturing output beyond polyline export."]
+      [:li [:strong "Precision CAD"] " — OpenSCAD, FreeCAD. When you need engineering tolerances and manufacturing output."]
       [:li [:strong "Data visualization"] " — Vega-Lite, Observable Plot, Oz. When your primary goal is communicating data rather than making art."]
       [:li [:strong "GPU shaders"] " — Shadertoy, ISF, Processing. When you need real-time fragment shader performance."]]]}])

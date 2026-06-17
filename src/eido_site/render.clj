@@ -148,7 +148,7 @@
        [:h1.hero-title "Eido"]
        [:p.hero-tagline
         "An end-to-end Clojure toolkit for generative artists — "
-        "from REPL sketch to screen, print, and plotter."]
+        "from REPL sketch to finished image."]
        [:p {:style "color: #6a6a7a; font-size: 0.85rem; margin-top: 0.3rem; font-style: italic;"}
         "From Greek " [:em "eido"] " \u2014 \"I see.\" "
         "A tool for making art, not charts — see "
