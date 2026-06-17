@@ -106,7 +106,7 @@
      [:ol
       [:li "Define a " [:strong "parameter spec"] " — what varies across editions"]
       [:li "Write a " [:strong "scene function"] " — turns parameters into a scene"]
-      [:li "Render a " [:strong "batch"] " with metadata and optional manifests"]
+      [:li "Render the " [:strong "range"] " of editions — one deterministic parameter map each"]
       [:li "Analyze " [:strong "trait distribution"] " across the series"]]]}
 
    {:id "param-spec"
@@ -129,9 +129,9 @@
     :title "Scene Function"
     :content
     [:div
-     [:p "The scene function takes sampled parameters and an edition number, and returns a scene map:"]
+     [:p "The scene function takes sampled parameters and returns a scene map:"]
      [:pre [:code
-            "(defn make-scene [params edition]
+            "(defn make-scene [params]
   {:image/size [800 800]
    :image/background [:color/hsl (:hue params) 0.1 0.95]
    :image/nodes
@@ -142,257 +142,44 @@
     :title "Batch Rendering"
     :content
     [:div
+     [:p [:code "series-range"] " expands a spec into one deterministic parameter map per edition. Render each one in a loop:"]
      [:pre [:code
             "(require '[eido.gen.series :as series])
 
-(series/render-editions
-  {:spec        spec
-   :master-seed 42
-   :start       0
-   :end         50
-   :scene-fn    make-scene
-   :output-dir  \"editions/\"
-   :format      :png
-   :render-opts {:scale 2}
-   :traits      {:density [[15 \"sparse\"] [25 \"medium\"] [100 \"dense\"]]}
-   :emit-manifest? true})"]]
-     [:p "This renders 50 editions, writing:"]
-     [:ul
-      [:li [:code "editions/edition-0.png"] " through " [:code "edition-49.png"]]
-      [:li [:code "editions/metadata.edn"] " — parameters and traits for every edition"]
-      [:li [:code "editions/edition-0.edn"] " through " [:code "edition-49.edn"] " — per-edition manifests (with " [:code ":emit-manifest? true"] ")"]]
-     [:p "Each manifest contains the full scene map, seed, parameters, and Eido version — everything needed to reproduce that exact output."]]}
-
-   {:id "complete-package"
-    :title "Complete Package"
-    :content
-    [:div
-     [:p "For a full archival package — images, manifests, and a contact sheet in one call — use " [:code "export-edition-package"] ":"]
-     [:pre {:data-img "docs-wf-editions-contact.png"} [:code
-            "(series/export-edition-package
-  {:spec        spec
-   :master-seed 42
-   :start       0
-   :end         50
-   :scene-fn    make-scene
-   :output-dir  \"editions/\"
-   :contact-cols 10
-   :thumb-size  [160 160]})"]]
-     [:p "This produces everything " [:code "render-editions"] " does (with manifests enabled), plus a " [:code "contact-sheet.png"] " — a grid of thumbnails useful for proofing, exhibition planning, and social media."]]}
+(doseq [[edition params]
+        (map-indexed vector (series/series-range spec 42 0 50))]
+  (eido/render (make-scene params)
+               {:output (str \"editions/edition-\" edition \".png\")}))"]]
+     [:p "This writes " [:code "editions/edition-0.png"] " through " [:code "edition-49.png"]
+      ". Each edition's parameters come from a seed derived from the master seed (42) and the edition number, so the same pair always reproduces the same image."]]}
 
    {:id "traits"
     :title "Trait Analysis"
     :content
     [:div
-     [:p "Traits categorize continuous parameters into named labels for metadata and marketplace display:"]
+     [:p "Traits categorize continuous parameters into named labels. " [:code "trait-summary"]
+      " counts how many editions fall into each bucket across the series:"]
      [:pre [:code
             "(series/trait-summary
-  {:spec spec :master-seed 42
-   :start 0 :end 100
-   :traits {:density [[15 \"sparse\"] [25 \"medium\"] [100 \"dense\"]]
-            :palette identity}})"]]
-     [:p "Returns frequency counts — how many editions fall into each trait bucket. Useful for verifying that your parameter spec produces a good distribution."]]}
+  spec 42 100
+  {:density [[15 \"sparse\"] [25 \"medium\"] [100 \"dense\"]]})
+;=> {:density {\"sparse\" 22, \"medium\" 48, \"dense\" 30}}"]]
+     [:p "Useful for verifying that rare traits are actually rare before releasing a series."]]}
 
    {:id "reproducibility"
     :title "Reproducibility"
     :content
     [:div
-     [:p "Every render can produce a manifest — a machine-readable EDN sidecar file:"]
+     [:p "Reproduction rests on determinism: the same scene map renders to the same bytes, every time. Store the scene as EDN — or the seed and spec that generate it — and you can always re-render it."]
+     [:p "When you stumble on a seed worth keeping, bookmark it:"]
      [:pre [:code
-            ";; Re-render from a manifest
-(eido/render-from-manifest \"editions/edition-42.edn\")
+            "(series/save-seed! \"seeds.edn\"
+  {:seed 42 :params params :note \"strong diagonal\"})
 
-;; Or re-render to a different format
-(eido/render-from-manifest \"editions/edition-42.edn\"
-  {:output \"edition-42-print.tiff\" :dpi 300})"]]
-     [:p "The manifest stores the complete scene map — the same data you'd pass to " [:code "render"] ". This is the primary reproduction mechanism. The Eido version is recorded for diagnostics, but the scene map alone is usually sufficient."]]}])
-
-(defn- workflow-plotter-sections []
-  [{:id "stroke-only"
-    :title "Stroke-Only SVG"
-    :content
-    [:div
-     [:p "Plotters draw lines, not fills. Use " [:code ":stroke-only true"] " to strip fills and backgrounds:"]
-     [:pre [:code
-            "(eido/render scene {:output \"plotter.svg\"
-                        :stroke-only true})"]]
-     [:p "This removes all " [:code ":style/fill"] " values and the " [:code ":image/background"] ", leaving only stroked paths."]]}
-
-   {:id "pen-grouping"
-    :title "Grouping by Pen"
-    :content
-    [:div
-     [:p "Multi-pen plotters need paths grouped by stroke color. Use " [:code ":group-by-stroke"] ":"]
-     [:pre [:code
-            "(eido/render scene {:output \"plotter.svg\"
-                        :stroke-only     true
-                        :group-by-stroke true})"]]
-     [:p "Each stroke color gets its own " [:code "<g>"] " element with an id like " [:code "pen-rgb-0-0-0"] ". Load the SVG in your plotter software and assign each group to a physical pen."]]}
-
-   {:id "travel-optimization"
-    :title "Travel Optimization"
-    :content
-    [:div
-     [:p "Minimize pen-up travel distance with " [:code ":optimize-travel"] ":"]
-     [:pre {:data-img "docs-wf-plotter-strokes.png"} [:code
-            "(eido/render scene {:output \"plotter.svg\"
-                        :stroke-only     true
-                        :group-by-stroke true
-                        :deduplicate     true
-                        :optimize-travel true})"]]
-     [:p [:code ":deduplicate"] " removes identical overlapping paths. " [:code ":optimize-travel"] " reorders drawing operations using greedy nearest-neighbor, which can significantly reduce total plot time."]]}
-
-   {:id "path-aesthetics"
-    :title "Path Aesthetics"
-    :content
-    [:div
-     [:p "Plotter output benefits from path-level treatment — smoothing, jitter, and dashing:"]
-     [:pre [:code
-            "(require '[eido.path.aesthetic :as aes])
-
-;; Smooth jagged paths
-(aes/smooth-commands cmds {:tension 0.4})
-
-;; Add organic wobble
-(aes/jittered-commands cmds {:amount 1.5 :seed 42})
-
-;; Break into dashes
-(aes/dash-commands cmds {:dash [10 5]})
-
-;; Chain transforms with stylize
-(aes/stylize cmds
-  [[:smooth {:tension 0.3}]
-   [:jitter {:amount 1.0 :seed 42}]])"]]
-     [:p "These transforms work on path commands, not scene nodes — apply them before building the final scene."]]}
-
-   {:id "per-layer"
-    :title "Per-Layer Export"
-    :content
-    [:div
-     [:p "For multi-pen plotters, export one SVG file per stroke color with " [:code "export-layers"] ":"]
-     [:pre [:code
-            "(require '[eido.io.plotter :as plotter])
-
-(plotter/export-layers scene \"output/plotter/\"
-  {:optimize-travel true})
-;; => [{:pen \"pen-rgb-255-0-0-\" :file \"output/plotter/pen-rgb-255-0-0-.svg\"}
-;;     {:pen \"pen-rgb-0-0-255-\" :file \"output/plotter/pen-rgb-0-0-255-.svg\"}]
-;; Also writes output/plotter/preview.svg with all layers"]]
-     [:p "Each layer SVG is stroke-only with deduplicated, travel-optimized paths. Load each file in your plotter software and assign to a physical pen. Disable the preview with " [:code "{:preview false}"] "."]]}
-
-   {:id "polylines"
-    :title "Beyond Plotters: Polyline Export"
-    :content
-    [:div
-     [:p "For CNC mills, laser cutters, and custom plotter software, export raw coordinate data:"]
-     [:pre [:code
-            "(eido/render scene {:format :polylines})
-;=> {:polylines [[[x1 y1] [x2 y2] ...] ...]
-;    :bounds [800 600]}
-
-;; Or write to file
-(eido/render scene {:format :polylines
-                    :output \"paths.edn\"
-                    :flatness 0.5
-                    :segments 64})"]]
-     [:p "All geometry is converted to polylines: curves are flattened via de Casteljau subdivision, circles and ellipses are approximated as polygons."]]}
-
-   {:id "dxf"
-    :title "DXF for CAD & Fabrication"
-    :content
-    [:div
-     [:p "Eido emits " [:strong "DXF R12 ASCII"] " — the universal CAD interchange format. Reach LibreCAD, QCAD, AutoCAD, and any downstream tool that consumes DXF: laser cutters, CNC routers, vinyl cutters, plasma tables, waterjets."]
-     [:pre {:data-img "docs-wf-motion-streams.png"} [:code
-            "(eido/render scene {:output \"art.dxf\"})
-;; or return the string
-(eido/render scene {:format :dxf})"]]
-     [:p "Each unique stroke color becomes a DXF " [:code "LAYER"] " named " [:code "pen-R-G-B"] " (or " [:code "pen-R-G-B-aNN"] " when stroke alpha < 1.0 — DXF R12 has no per-layer transparency, so the suffix keeps layer names unique). Colors map to the AutoCAD Color Index (ACI) by nearest-neighbor against the named 9-color palette. Ops without a stroke go to a " [:code "pen-none"] " layer."]
-     [:p "Options:"]
-     [:ul
-      [:li [:code ":scale"] " — coordinate multiplier (default 1.0); scene units are emitted as millimetres (" [:code "$INSUNITS 4"] ")"]
-      [:li [:code ":flatness"] " — curve subdivision tolerance (default 0.5)"]
-      [:li [:code ":segments"] " — circle/ellipse/arc segment count (default 64)"]
-      [:li [:code ":optimize-travel"] " — reorder polylines within each layer to minimize pen travel (default true)"]]]}
-
-   {:id "gcode"
-    :title "GRBL G-code for Lasers & 2D CNC"
-    :content
-    [:div
-     [:p "For pen-on-CNC, laser engravers, and 2D CNC routers running GRBL, emit a streamable motion program:"]
-     [:pre {:data-img "docs-wf-motion-streams.png"} [:code
-            "(eido/render scene {:output \"art.gcode\"})
-;; or as a string
-(eido/render scene {:format :gcode})"]]
-     [:p "Each stroke color becomes an " [:code "M0"] " operator-pause tool change plus an " [:code "M3"] " spindle-on (or " [:code "M4"] " dynamic laser power when " [:code ":laser-mode true"] "). Polylines emit " [:code "G0"] " rapids to start, " [:code "G1 Z"] " plunges to engage, " [:code "G1"] " draws at the configured feed rate, then " [:code "G1 Z"] " retracts."]
-     [:p "The Y-axis is flipped relative to scene height so " [:code "(0, 0)"] " sits at the bottom-left bed origin (CNC convention), not the top-left (SVG convention)."]
-     [:p "Options:"]
-     [:ul
-      [:li [:code ":feed"] " — cutting/drawing feed rate (default 1000 mm/min)"]
-      [:li [:code ":z-up"] " / " [:code ":z-down"] " — safe retract / engage heights in mm (default 5 / 0)"]
-      [:li [:code ":spindle-power"] " — S value on M3/M4 (default 1000; typical 0–1000)"]
-      [:li [:code ":laser-mode"] " — swap M3 for M4 dynamic power (default false)"]
-      [:li [:code ":scale"] ", " [:code ":flatness"] ", " [:code ":segments"] ", " [:code ":optimize-travel"] " — as above"]]
-     [:p [:em "GRBL only."] " Marlin and LinuxCNC dialects, plus G2/G3 arc moves, are out of scope for this release."]]}
-
-   {:id "hpgl"
-    :title "HPGL for Vintage & Current Plotters"
-    :content
-    [:div
-     [:p "For the vintage pen-plotter world — HP DraftPro, HP DesignJet, Roland DXY/PNC, many used 80s/90s plotters still in service — and for AxiDraw-adjacent controllers via shims, emit HPGL directly:"]
-     [:pre {:data-img "docs-wf-motion-streams.png"} [:code
-            "(eido/render scene {:output \"art.hpgl\"})
-;; or as a string
-(eido/render scene {:format :hpgl})"]]
-     [:p "HPGL is plain ASCII: " [:code "IN;"] " initialize, " [:code "PA;"] " absolute coords, " [:code "SP n;"] " select pen n, " [:code "PU x,y;"] " pen up + move, " [:code "PD x,y,...;"] " pen down + draw. Each unique stroke color becomes a sequential pen (1-indexed, first-seen order), so a scene with three stroke colors cleanly maps to pens 1, 2, and 3."]
-     [:p "Like G-code, HPGL uses a bottom-left origin — Eido flips Y relative to scene height automatically."]
-     [:p "Options:"]
-     [:ul
-      [:li [:code ":scale"] " — plotter units per scene unit (default 40, matching the classic HP 40-units-per-mm resolution); pass " [:code ":scale 1"] " for raw scene units"]
-      [:li [:code ":flatness"] ", " [:code ":segments"] ", " [:code ":optimize-travel"] " — as above"]]]}
-
-   {:id "clipping"
-    :title "Clipping Through to the Pen"
-    :content
-    [:div
-     [:p "The polyline pipeline clips each exported polyline against its parent group's " [:code ":group/clip"] " geometry — same behavior as the raster renderer. Previously a 200×200 rect clipped to a small circle would have exported its full outline regardless, costing pen ink and travel on geometry the artist had hidden."]
-     [:pre {:data-img "docs-wf-clip-export.png"} [:code
-            ";; Flow field clipped to a circle — the exported DXF / G-code /
-;; HPGL / polyline data contains only the strokes inside the circle.
-{:image/size [300 300]
- :image/background [:color/rgb 245 243 238]
- :image/nodes
- [{:node/type  :group
-   :group/clip {:node/type     :shape/circle
-                :circle/center [150 150]
-                :circle/radius 110}
-   :group/children flow-field-paths}]}"]]
-     [:p "Clipping is segment-by-segment analytic: each polyline segment is tested against every clip-polygon edge; intervals classified as inside become sub-polylines, intervals outside are dropped, intervals straddling the boundary split into multiple sub-polylines. Open polylines (lines, unclosed paths) are handled correctly — they don't get forced into closed polygons."]
-     [:p "Arbitrary, non-convex clip paths are supported; " [:code ":shape/rect"] ", " [:code ":shape/circle"] ", " [:code ":shape/ellipse"] ", and " [:code ":shape/path"] " all work as clip geometry."]]}
-
-   {:id "drops"
-    :title "What Doesn't Survive the Pen"
-    :content
-    [:div
-     [:p "Polylines can only represent stroke paths. Anything that relies on raster — fills (solid, gradient, pattern, hatch, stipple), effects (shadow, glow, blur), and composite modes — is silently dropped by every motion-stream backend. A scene that looks filled on screen exports as outlines only."]
-     [:p "To make that loss auditable, the substrate reports it:"]
-     [:pre [:code
-            "(eido/render scene {:format :polylines})
-;=> {:polylines [...]
-;    :bounds [400 300]
-;    :dropped {:fills 12}}   ;; only present when non-empty
-
-;; With :emit-manifest? true, the :dropped map lands in the
-;; sidecar EDN manifest alongside :scene and :render-opts.
-(eido/render scene {:output \"art.dxf\" :emit-manifest? true})
-;; → writes art.dxf and art.edn, the latter containing :dropped."]]
-     [:p "For programmatic checks, " [:code "eido.io.polyline/summarize-drops"] " takes a compiled IR and returns the same map — useful when gating a plot queue or warning in a custom tool:"]
-     [:pre [:code
-            "(require '[eido.io.polyline :as polyline]
-         '[eido.engine.compile :as compile])
-
-(polyline/summarize-drops (compile/compile scene))
-;=> {:fills 3}  ;; or {} when nothing's dropped"]]
-     [:p "If " [:code ":dropped"] " matters for your workflow, fold a check into your plot script: refuse to plot when fills are non-zero, or surface the count in your editioning tooling."]]}])
+;; Later, read them all back
+(series/load-seeds \"seeds.edn\")
+;=> [{:seed 42 :params {,,,} :note \"strong diagonal\" :timestamp \"...\"}]"]]
+     [:p [:code "save-seed!"] " appends one EDN form per line; " [:code "load-seeds"] " reads them back in append order."]]}])
 
 (defn- workflow-print-sections []
   [{:id "paper-presets"
@@ -427,7 +214,7 @@
              :circle/radius 5.0            ;; 5 cm radius
              :style/stroke  {:color :black :width 0.1}}])  ;; 1mm stroke
     scene/with-units
-    (eido/render {:output \"print.tiff\"}))"]]
+    (eido/render {:output \"print.png\"}))"]]
      [:p [:code "with-units"] " walks the entire scene tree, scaling all spatial values (coordinates, radii, stroke widths, dash patterns, font sizes) while leaving non-spatial values (opacity, angles, colors) untouched."]]}
 
    {:id "margins"
@@ -440,38 +227,21 @@
     (assoc :image/nodes [,,,your artwork,,,])
     (scene/with-margin 2.0)   ;; 2cm margin on all sides
     scene/with-units
-    (eido/render {:output \"print.tiff\"}))"]]
+    (eido/render {:output \"print.png\"}))"]]
      [:p "The margin clips artwork to the inset rectangle, giving you a clean border. Apply it before " [:code "with-units"] "."]]}
 
    {:id "export-formats"
-    :title "Print-Ready Export"
+    :title "Rendering at Print Resolution"
     :content
     [:div
-     [:p "For archival output, use TIFF with DPI metadata:"]
+     [:p "Author in real-world units, convert with " [:code "with-units"] ", and render to PNG. The pixel dimensions follow from the paper size and the DPI on the scene:"]
      [:pre [:code
-            ";; TIFF with embedded DPI — the standard for print shops
-(eido/render scene {:output \"print.tiff\" :dpi 300})
-
-;; High-DPI PNG
-(eido/render scene {:output \"print.png\" :dpi 300})
-
-;; Or set DPI on the scene and it propagates automatically
-(eido/render (assoc scene :image/dpi 300)
-  {:output \"print.tiff\"})"]]
-     [:p "TIFF supports LZW compression (default), deflate, or none. DPI metadata is embedded in the file header — print software reads it automatically."]]}
-
-   {:id "manifest"
-    :title "Archival Manifests"
-    :content
-    [:div
-     [:p "For print editions, attach a manifest to every render:"]
-     [:pre [:code
-            "(eido/render scene {:output \"edition-01.tiff\"
-                        :dpi 300
-                        :emit-manifest? true
-                        :seed 42
-                        :params params})"]]
-     [:p "The manifest records the full scene, parameters, Eido version, and timestamp — everything needed to reproduce the exact print years later."]]}])
+            ";; A3 at 600 DPI — with-units expands to ~7016 x 9933 px
+(-> (scene/paper :a3 :dpi 600)
+    (assoc :image/nodes [,,,your artwork,,,])
+    scene/with-units
+    (eido/render {:output \"print.png\"}))"]]
+     [:p "Pick the DPI your printer wants on the paper preset before converting units — higher DPI means more pixels and a larger file."]]}])
 
 (defn- workflow-animation-sections []
   [{:id "basics"
@@ -518,38 +288,10 @@
     :content
     [:div
      [:pre [:code
-            ";; Animated GIF — loops by default
-(eido/render frames {:output \"anim.gif\" :fps 30})
-
-;; Non-looping GIF
-(eido/render frames {:output \"anim.gif\" :fps 30 :loop false})
-
-;; Higher resolution
-(eido/render frames {:output \"anim.gif\" :fps 30 :scale 2})"]]]}
-
-   {:id "svg-animation"
-    :title "Animated SVG"
-    :content
-    [:div
-     [:pre [:code
-            ";; Animated SVG using SMIL
-(eido/render frames {:output \"anim.svg\" :fps 30})
-
-;; Or get the SVG string directly
-(eido/render frames {:format :svg :fps 30})"]]
-     [:p "Animated SVGs are resolution-independent and work in modern browsers."]]}
-
-   {:id "png-sequence"
-    :title "PNG Sequence"
-    :content
-    [:div
-     [:p "For video production, render a numbered PNG sequence and encode with ffmpeg:"]
-     [:pre [:code
-            ";; Write frame-0000.png through frame-0059.png
-(eido/render frames {:output \"frames/\" :fps 30})
-
-;; Then encode:
-;; ffmpeg -framerate 30 -i frames/frame-%04d.png -c:v libx264 -pix_fmt yuv420p out.mp4"]]]}
+            ";; Animated GIF (:fps default 12)
+(eido/render frames {:output \"anim.gif\" :fps 30})"]]
+     [:p "A sequence of frames renders to an animated GIF. Render the same frames without "
+      [:code ":output"] " to get the encoded GIF bytes back as a value."]]}
 
    {:id "looping"
     :title "Seamless Loops"
@@ -637,7 +379,7 @@
 {:image/size [800 600]
  :image/background [:color/rgb 30 30 40]
  :image/nodes nodes}"]]
-     [:p "The output is standard Eido scene nodes — polygons with fills and strokes. Everything downstream (export, plotter output, animation) works normally."]]}
+     [:p "The output is standard Eido scene nodes — polygons with fills and strokes. Everything downstream (compositing, effects, animation) works normally."]]}
 
    {:id "textures"
     :title "Procedural Textures"
@@ -662,7 +404,7 @@
 (s3d/render-mesh mesh cam
   {:style :hatch
    :hatch {:angle 45 :spacing 3 :light-dir [1 1 1]}})"]]
-     [:p "Lit faces get sparse hatching; shadowed faces get dense hatching. This produces a hand-drawn look that works especially well for plotter output."]]}])
+     [:p "Lit faces get sparse hatching; shadowed faces get dense hatching. This produces a hand-drawn, woodcut-like look."]]}])
 
 (defn- workflow-color-sections []
   [{:id "color-spaces"
@@ -779,56 +521,44 @@
     :title "First Painted Stroke"
     :content
     [:div
-     [:p "The paint engine renders brushstrokes as dab sequences onto a tiled raster surface. Everything is procedural — no bitmap textures."]
-     [:pre {:data-img "paint-02-ink-calligraphy.png"} [:code
-            "(require '[eido.core :as eido])
-
-;; A single painted path with pressure
-{:image/size [800 400]
- :image/background [:color/rgb 252 250 242]
- :image/nodes
- [{:node/type :shape/path
-   :path/commands [[:move-to [60 200]]
-                   [:curve-to [200 80] [350 320] [740 160]]]
-   :paint/brush :ink
-   :paint/color [:color/rgb 15 10 5]
-   :paint/radius 9.0
-   :paint/pressure [[0.0 0.1] [0.3 0.9] [0.7 0.6] [1.0 0.05]]}]}"]]
-     [:p "Add " [:code ":paint/brush"] " to any path and it becomes a painted stroke. "
-      "The " [:code ":paint/pressure"] " curve maps stroke parameter t (0 = start, 1 = end) to pressure, which scales radius and opacity."]]}
+     [:p "The paint engine renders brushstrokes as dab sequences onto a raster surface — brushes are data, strokes are data. The simplest form is a "
+      [:code ":paint/surface"] " node listing strokes; each is a brush, a color, a radius, and a series of " [:code "[x y]"] " points the dab follows:"]
+     [:pre {:data-img "paint-chalk-sketch.png"} [:code
+            "{:node/type :paint/surface
+ :paint/size [600 400]
+ :paint/strokes
+ [{:paint/brush  :chalk
+   :paint/color  [:color/rgb 80 60 40]
+   :paint/radius 12.0
+   :paint/points [[50 100] [300 60] [550 100]]}]}"]]
+     [:p "The dab is laid down along the points in order."]]}
 
    {:id "paint-presets"
     :title "Brush Presets"
     :content
     [:div
-     [:p "Built-in presets cover common media. Each is a full brush spec you can override:"]
+     [:p "Six presets cover the common media — name one as " [:code ":paint/brush"] ", or override the brush directly:"]
      [:pre [:code
-            ";; Use a preset directly
-:paint/brush :chalk
+            ";; Use a preset
+:paint/brush :chalk   ;; :pencil :ink :marker :watercolor :oil :chalk
 
-;; Override specific parameters
-:paint/brush {:brush/type :brush/dab
-              :brush/tip {:tip/shape :ellipse
-                          :tip/hardness 0.5
-                          :tip/aspect 2.0}
-              :brush/grain {:grain/type :fiber
-                            :grain/scale 0.06
-                            :grain/contrast 0.5}
-              :brush/paint {:paint/opacity 0.12
-                            :paint/spacing 0.04}}"]]
-     [:p "Available presets: " [:code ":pencil"] ", " [:code ":marker"] ", " [:code ":airbrush"]
-      ", " [:code ":chalk"] ", " [:code ":ink"] ", " [:code ":oil"] ", "
-      [:code ":watercolor"] ", " [:code ":pastel"] "."]]}
+;; Or override the brush — tip shape, hardness, flow, blend
+:paint/brush {:brush/tip   {:tip/shape :ellipse :tip/hardness 0.9}
+              :brush/paint {:paint/flow 0.7 :paint/blend :multiply}}"]]
+     [:p "Tip shapes: " [:code ":round"] ", " [:code ":ellipse"] ", " [:code ":chisel"] ", "
+      [:code ":rect"] ", " [:code ":line"] ". Blend modes: " [:code ":normal"] ", "
+      [:code ":multiply"] ", " [:code ":screen"] ", " [:code ":overlay"] ", "
+      [:code ":darken"] ", " [:code ":lighten"] ", " [:code ":add"] "."]]}
 
    {:id "paint-surfaces"
-    :title "Shared Surfaces"
+    :title "Painting Paths"
     :content
     [:div
-     [:p "For multiple strokes on one canvas (e.g. layered watercolor), use a group with "
-      [:code ":paint/surface"] ":"]
+     [:p "To paint along curves, wrap brush-painted " [:code ":shape/path"] " nodes in a group carrying "
+      [:code ":paint/surface"] ". Each path's commands become a stroke, and all of them render onto the same surface — so later strokes lay over earlier ones:"]
      [:pre {:data-img "paint-03-watercolor-wash.png"} [:code
             "{:node/type :group
- :paint/surface {:substrate/tooth 0.3}
+ :paint/surface {:paint/size [800 400]}
  :group/children
  [{:node/type :shape/path
    :path/commands [[:move-to [20 250]]
@@ -843,60 +573,8 @@
    :paint/brush :ink
    :paint/color [:color/rgb 25 30 50]
    :paint/radius 2.5}]}"]]
-     [:p "Or use the standalone " [:code ":paint/surface"] " node with explicit point data for full control over pressure, speed, and tilt per point."]]}
-
-   {:id "paint-generators"
-    :title "Composing with Generators"
-    :content
-    [:div
-     [:p "Paint parameters flow through generators. Put a flow field inside a paint group and every streamline becomes a painted stroke:"]
-     [:pre {:data-img "paint-04-flow-ink.png"} [:code
-            "{:node/type :group
- :paint/surface {:paint/size [700 700]}
- :group/children
- [{:node/type :flow-field
-   :flow/bounds [40 40 620 620]
-   :flow/opts {:density 18 :steps 50
-               :noise-scale 0.005 :seed 33}
-   :paint/brush :ink
-   :paint/color [:color/rgb 20 15 10]
-   :paint/radius 1.8}]}"]]
-     [:p "This works with any generator: " [:code ":scatter"] ", " [:code ":symmetry"] ", " [:code ":flow-field"] ", " [:code ":path/decorated"] ". "
-      "The paint parameters propagate from the generator node to all its generated paths."]]}
-
-   {:id "paint-texture"
-    :title "Grain and Substrate"
-    :content
-    [:div
-     [:p "Grain textures modulate deposition inside the brush tip. Substrate describes the paper/canvas surface. Both are procedural:"]
-     [:pre {:data-img "paint-05-pastel-landscape.png"} [:code
-            ";; Grain: breaks up the stroke with texture
-:brush/grain {:grain/type :fiber    ;; :fbm :ridge :weave :canvas
-              :grain/scale 0.06
-              :grain/contrast 0.5
-              :grain/stretch 4.0}
-
-;; Substrate: paper tooth blocks paint in valleys
-:paint/surface {:substrate/tooth 0.4
-                :substrate/scale 0.1}"]]
-     [:p "Available grain types: " [:code ":fbm"] " (general), " [:code ":fiber"]
-      " (directional), " [:code ":weave"] " (canvas), " [:code ":ridge"]
-      " (sharp), " [:code ":turbulence"] " (billowy), " [:code ":canvas"]
-      " (weave + fine noise)."]]}
-
-   {:id "paint-bristles"
-    :title "Bristle Brushes"
-    :content
-    [:div
-     [:p "Add " [:code ":brush/bristles"] " to create multi-tip brushes that show individual hair marks:"]
-     [:pre {:data-img "paint-06-bristle-flat.png"} [:code
-            ":brush/bristles {:bristle/count 9
-                 :bristle/spread 1.0
-                 :bristle/shear 0.15}"]]
-     [:p "Bristles are arranged perpendicular to the stroke direction. "
-      [:code ":bristle/spread"] " controls width, "
-      [:code ":bristle/shear"] " adds a fan effect. "
-      "Each bristle gets subtle opacity and size variation for a natural look."]]}])
+     [:p "Give each painted path a " [:code ":paint/brush"] ", " [:code ":paint/color"] ", and "
+      [:code ":paint/radius"] " — and no " [:code ":style/fill"] " or " [:code ":style/stroke"] "."]]}])
 
 (def workflow-pages
   "Registry of all workflow guide pages."
@@ -906,14 +584,11 @@
   {:slug "editions"   :title "Long-Form Editions"
    :desc "Deterministic series, seed management, trait distribution, and batch rendering."
    :sections-fn workflow-editions-sections}
-  {:slug "plotter"    :title "Plotter Art"
-   :desc "Stroke-only SVG, pen grouping, travel optimization, polyline export, and DXF / GRBL G-code / HPGL writers."
-   :sections-fn workflow-plotter-sections}
   {:slug "print"      :title "Print Production"
-   :desc "Paper presets, real-world units, margins, DPI, and archival TIFF output."
+   :desc "Paper presets, real-world units, margins, and rendering at print resolution."
    :sections-fn workflow-print-sections}
   {:slug "animation"  :title "Animation & Screen"
-   :desc "Frame sequences, GIF export, animated SVG, easing, and seamless loops."
+   :desc "Frame sequences, GIF export, easing, and seamless loops."
    :sections-fn workflow-animation-sections}
   {:slug "3d"         :title "3D Generative Art"
    :desc "Mesh construction, transforms, camera, textures, and non-photorealistic rendering."
@@ -922,5 +597,5 @@
    :desc "Perceptual color, palette generation, analysis, image extraction, and application."
    :sections-fn workflow-color-sections}
   {:slug "paint"      :title "Paint Engine"
-   :desc "Procedural brushwork, dab rendering, grain textures, bristle brushes, and generator composition."
+   :desc "Procedural brushwork — paint surfaces, brush presets, and painting along paths."
    :sections-fn workflow-paint-sections}])
