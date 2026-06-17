@@ -51,19 +51,17 @@
   "Builds the complete eido website into the output directory.
   Run via: clj -X:build
 
-  :renderer selects the rendering backend, defaulting to :clojo (the
-  native Clojo engine). Pass :renderer nil to render via the legacy
-  Java2D engine for A/B parity comparison."
-  [& {:keys [out-dir renderer] :or {out-dir "_site" renderer :clojo}}]
-  (println "Building eido site into" out-dir "(renderer:" renderer ")...")
+  Scenes render through the native Clojo backend (eido.core/render)."
+  [& {:keys [out-dir] :or {out-dir "_site"}}]
+  (println "Building eido site into" out-dir "...")
 
   ;; Render all example images
   (println "Rendering examples...")
-  (scenes/render-all-examples! out-dir renderer)
+  (scenes/render-all-examples! out-dir)
 
   ;; Render docs example previews
   (println "Rendering docs examples...")
-  (scenes/render-docs-examples! out-dir renderer)
+  (scenes/render-docs-examples! out-dir)
 
   ;; Discover examples for gallery
   (let [examples-by-category (scenes/all-examples)]

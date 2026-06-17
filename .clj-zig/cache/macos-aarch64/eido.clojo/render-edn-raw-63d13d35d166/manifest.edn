@@ -1,0 +1,18 @@
+{:zig-version "0.16.0",
+ :hash "63d13d35d166",
+ :symbol "clj_zig_eido_2e_clojo_render_2d_edn_2d_raw",
+ :signature
+ [graphEdn
+  [:slice :const :u8]
+  baseDir
+  [:slice :const :u8]
+  :ret
+  [:bytes [:slice :u8]]],
+ :source-path
+ ".clj-zig/cache/macos-aarch64/eido.clojo/render-edn-raw-63d13d35d166/source.zig",
+ :var eido.clojo/render-edn-raw,
+ :options {:optimize "ReleaseSafe"},
+ :target "macos-aarch64",
+ :library-path
+ ".clj-zig/cache/macos-aarch64/eido.clojo/render-edn-raw-63d13d35d166/librender-edn-raw-63d13d35d166.dylib",
+ :deps ""}
