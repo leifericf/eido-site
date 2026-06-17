@@ -49,17 +49,21 @@
 
 (defn build-site!
   "Builds the complete eido website into the output directory.
-  Run via: clj -X:gallery"
-  [& {:keys [out-dir] :or {out-dir "_site"}}]
-  (println "Building eido site into" out-dir "...")
+  Run via: clj -X:build
+
+  :renderer selects the rendering backend, defaulting to :clojo (the
+  native Clojo engine). Pass :renderer nil to render via the legacy
+  Java2D engine for A/B parity comparison."
+  [& {:keys [out-dir renderer] :or {out-dir "_site" renderer :clojo}}]
+  (println "Building eido site into" out-dir "(renderer:" renderer ")...")
 
   ;; Render all example images
   (println "Rendering examples...")
-  (scenes/render-all-examples! out-dir)
+  (scenes/render-all-examples! out-dir renderer)
 
   ;; Render docs example previews
   (println "Rendering docs examples...")
-  (scenes/render-docs-examples! out-dir)
+  (scenes/render-docs-examples! out-dir renderer)
 
   ;; Discover examples for gallery
   (let [examples-by-category (scenes/all-examples)]

@@ -78,28 +78,53 @@
 
 ;; --- Rendering examples ---
 
-(defn render-example!
-  "Renders a single example to the given output directory."
-  [{:keys [var output]} out-dir]
-  (let [result  @var
-        scene   (result)
-        path    (str out-dir "/images/" output)]
-    (io/make-parents path)
-    (if (:frames scene)
-      (eido/render (:frames scene) {:output path :fps (:fps scene 30)})
-      (eido/render scene {:output path}))
+(def ^:private clojo-font
+  "Absolute path to the vendored font Clojo text nodes resolve against.
+  The native backend resolves `:text/font` relative to the render base
+  directory; binding the translator's font to this path keeps text
+  scenes working without a Clojo source checkout."
+  (delay (some-> (io/resource "fonts/Lato-Regular.ttf") io/file .getAbsolutePath)))
+
+(defn- emit!
+  "Render `scene` (a single scene or a :frames animation) to `path`.
+  `renderer` nil keeps the Java2D engine; :clojo routes through the
+  native Clojo backend, translating Eido grammar and resolving text
+  against the vendored font. `fps` is the animation default for this
+  call site."
+  [scene path renderer fps]
+  (io/make-parents path)
+  (let [frames (:frames scene)
+        run    #(if frames
+                  (eido/render frames (cond-> {:output path :fps (:fps scene fps)}
+                                        renderer (assoc :renderer renderer)))
+                  (eido/render scene (cond-> {:output path}
+                                       renderer (assoc :renderer renderer))))]
+    (if (= :clojo renderer)
+      (with-bindings {(requiring-resolve 'eido.clojo.translate/*font*) @clojo-font}
+        (run))
+      (run))
     path))
+
+(defn render-example!
+  "Renders a single example to the given output directory. `renderer`
+  nil uses the Java2D engine; :clojo routes through the native backend."
+  ([example out-dir] (render-example! example out-dir nil))
+  ([{:keys [var output]} out-dir renderer]
+   (let [scene ((deref var))
+         path  (str out-dir "/images/" output)]
+     (emit! scene path renderer 30))))
 
 (defn render-all-examples!
   "Renders all discovered examples. Returns a seq of rendered paths."
-  [out-dir]
-  (let [groups (all-examples)]
-    (doall
-      (for [{:keys [examples]} groups
-            example examples]
-        (do
-          (println "  Rendering" (:output example) "...")
-          (render-example! example out-dir))))))
+  ([out-dir] (render-all-examples! out-dir nil))
+  ([out-dir renderer]
+   (let [groups (all-examples)]
+     (doall
+       (for [{:keys [examples]} groups
+             example examples]
+         (do
+           (println "  Rendering" (:output example) "...")
+           (render-example! example out-dir renderer)))))))
 
 ;; --- Source code extraction ---
 
@@ -1264,14 +1289,13 @@
      }))
 
 (defn render-docs-examples!
-  "Renders preview images for docs code examples.
-  Supports both static scenes and animated scenes with :frames."
-  [out-dir]
-  (doseq [[filename scene-data] (docs-scenes)]
-    (let [path (str out-dir "/images/" filename)]
-      (println "  Rendering" filename "...")
-      (io/make-parents path)
-      (if (:frames scene-data)
-        (eido/render (:frames scene-data) {:output path :fps (:fps scene-data 24)})
-        (eido/render scene-data {:output path})))))
+  "Renders preview images for docs code examples. Supports both static
+  scenes and animated scenes with :frames. `renderer` nil uses the
+  Java2D engine; :clojo routes through the native backend."
+  ([out-dir] (render-docs-examples! out-dir nil))
+  ([out-dir renderer]
+   (doseq [[filename scene-data] (docs-scenes)]
+     (let [path (str out-dir "/images/" filename)]
+       (println "  Rendering" filename "...")
+       (emit! scene-data path renderer 24)))))
 
