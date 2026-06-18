@@ -1,9 +1,9 @@
 {:paths ["src" "resources"]
  :deps  {org.clojure/clojure   {:mvn/version "1.12.0"}
-         ;; Eido on the Phane-backed branch: the site renders through the
-         ;; native Phane backend (:renderer :phane). Sibling checkout in dev;
-         ;; a published coordinate replaces :local/root once the branch lands.
-         io.github.leifericf/eido {:local/root "../eido"}
+         ;; Eido renders through the native Phane backend. Pinned by commit;
+         ;; the fetched tree carries the baked native libraries, so the build
+         ;; needs no Zig toolchain or Phane source checkout (clj-zig ADR 31/36).
+         io.github.leifericf/eido {:git/sha "70f39a7601abaf0904f4fffffd9ad615edcb9dfd"}
          stasis/stasis         {:mvn/version "2023.11.21"}
          no.cjohansen/replicant {:mvn/version "2025.12.1"}
          garden/garden         {:mvn/version "1.3.10"}}
