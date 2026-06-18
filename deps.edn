@@ -1,7 +1,7 @@
 {:paths ["src" "resources"]
  :deps  {org.clojure/clojure   {:mvn/version "1.12.0"}
-         ;; Eido on the Clojo-backed branch: the site renders through the
-         ;; native Clojo backend (:renderer :clojo). Sibling checkout in dev;
+         ;; Eido on the Phane-backed branch: the site renders through the
+         ;; native Phane backend (:renderer :phane). Sibling checkout in dev;
          ;; a published coordinate replaces :local/root once the branch lands.
          io.github.leifericf/eido {:local/root "../eido"}
          stasis/stasis         {:mvn/version "2023.11.21"}
@@ -11,6 +11,6 @@
  {:dev   {:extra-paths ["dev"]
           :extra-deps  {nrepl/nrepl {:mvn/version "1.3.0"}}
           :jvm-opts ["--enable-native-access=ALL-UNNAMED"]}
-  ;; The build drives the native Clojo backend, so it needs FFM native access.
+  ;; The build drives the native Phane backend, so it needs FFM native access.
   :build {:exec-fn eido-site.build/build-site!
           :jvm-opts ["--enable-native-access=ALL-UNNAMED"]}}}

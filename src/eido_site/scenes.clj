@@ -78,20 +78,20 @@
 
 ;; --- Rendering examples ---
 
-(def ^:private clojo-font
-  "Absolute path to the vendored font Clojo text nodes resolve against.
+(def ^:private phane-font
+  "Absolute path to the vendored font Phane text nodes resolve against.
   The native backend resolves `:text/font` relative to the render base
   directory; binding the translator's font to this path keeps text
-  scenes working without a Clojo source checkout."
+  scenes working without a Phane source checkout."
   (delay (some-> (io/resource "fonts/Lato-Regular.ttf") io/file .getAbsolutePath)))
 
 (defn- emit!
   "Render `scene` (a single scene or a :frames animation) to `path` through
-  the native Clojo backend, binding the translator font so text scenes
+  the native Phane backend, binding the translator font so text scenes
   resolve. `fps` is this call site's animation default."
   [scene path fps]
   (io/make-parents path)
-  (with-bindings {(requiring-resolve 'eido.clojo.translate/*font*) @clojo-font}
+  (with-bindings {(requiring-resolve 'eido.phane.translate/*font*) @phane-font}
     (if (:frames scene)
       (eido/render (:frames scene) {:output path :fps (:fps scene fps)})
       (eido/render scene {:output path})))
@@ -1278,7 +1278,7 @@
      }))
 
 (defn render-docs-examples!
-  "Renders preview images for docs code examples through the Clojo backend.
+  "Renders preview images for docs code examples through the Phane backend.
   Supports both static scenes and animated scenes with :frames."
   [out-dir]
   (doseq [[filename scene-data] (docs-scenes)]

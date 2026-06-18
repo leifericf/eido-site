@@ -51,7 +51,7 @@
   "Builds the complete eido website into the output directory.
   Run via: clj -X:build
 
-  Scenes render through the native Clojo backend (eido.core/render)."
+  Scenes render through the native Phane backend (eido.core/render)."
   [& {:keys [out-dir] :or {out-dir "_site"}}]
   (println "Building eido site into" out-dir "...")
 

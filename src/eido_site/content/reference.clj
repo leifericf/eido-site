@@ -1479,7 +1479,7 @@
       [:code "[:move-to [x y]]"] " becomes " [:code "[:move x y]"]
       "), semantic fills and gradients become tagged vectors, generators lower to generator nodes, rotations convert from radians to degrees, and paint surfaces become a paint program."]
      [:p "The translation is a plain function — scene data in, scene data out — so you can inspect exactly what the engine will receive before anything is rendered."]
-     [:p (arch-src-link "src/eido/clojo/translate.clj" "View the translator on GitHub")]]}
+     [:p (arch-src-link "src/eido/phane/translate.clj" "View the translator on GitHub")]]}
 
    ;; --- Step 3: Rendering ---
    {:id "rendering"
@@ -1489,7 +1489,7 @@
      [:p "The translated scene goes to the native rendering engine. It validates the scene, expands generators into geometry, rasterizes every shape, and returns the encoded image bytes together with any diagnostics. A malformed scene comes back as structured diagnostics rather than a crash — see the "
       [:a {:href "../manual/#validation"} "Validation"] " section."]
      [:p "Each call is stateless, so a render is reproducible: the same scene always produces the same bytes. That determinism is what makes seed-driven edition work dependable — an edition number always resolves to the same image."]
-     [:p (arch-src-link "src/eido/clojo.clj" "View the render bridge on GitHub")]]}
+     [:p (arch-src-link "src/eido/phane.clj" "View the render bridge on GitHub")]]}
 
    ;; --- Output ---
    {:id "output"
@@ -1530,8 +1530,8 @@
       [:thead [:tr [:th "Namespace"] [:th "Role"] [:th "Source"]]]
       [:tbody
        [:tr [:td [:code "eido.core"]] [:td "Entry point — " [:code "render"] " and scene loading"] [:td (arch-src-link "src/eido/core.clj" "core.clj")]]
-       [:tr [:td [:code "eido.clojo"]] [:td "Bridge to the native rendering engine"] [:td (arch-src-link "src/eido/clojo.clj" "clojo.clj")]]
-       [:tr [:td [:code "eido.clojo.translate"]] [:td "Eido grammar to engine grammar"] [:td (arch-src-link "src/eido/clojo/translate.clj" "translate.clj")]]
+       [:tr [:td [:code "eido.phane"]] [:td "Bridge to the native rendering engine"] [:td (arch-src-link "src/eido/phane.clj" "phane.clj")]]
+       [:tr [:td [:code "eido.phane.translate"]] [:td "Eido grammar to engine grammar"] [:td (arch-src-link "src/eido/phane/translate.clj" "translate.clj")]]
        [:tr [:td [:code "eido.scene"]] [:td "Layout helpers, paper presets, unit conversion"] [:td (arch-src-link "src/eido/scene.clj" "scene.clj")]]
        [:tr [:td [:code "eido.gen.*"]] [:td "Generative modules (noise, flow, circle packing, boids, etc.)"] [:td (arch-src-link "src/eido/gen/" "gen/")]]
        [:tr [:td [:code "eido.path.*"]] [:td "Path stroking, distortion, warping, aesthetics"] [:td (arch-src-link "src/eido/path/" "path/")]]
