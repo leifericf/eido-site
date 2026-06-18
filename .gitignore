@@ -30,3 +30,4 @@ _site/
 
 # Rendered preview images (generated at build time)
 images/
+.clj-zig/
